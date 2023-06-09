@@ -14,7 +14,7 @@ add_executable(${PROJECT_NAME}
 )
 
 #add_executable(${PROJECT_NAME}
-#    source/72d-tex-sphere.cpp 
+#    source/72f-cube-map.cpp 
 #)
 
 include(Dependency.cmake)

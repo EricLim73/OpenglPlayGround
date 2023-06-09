@@ -79,14 +79,6 @@ struct Light {
 	glm::vec4 att;
 };
 
-Light light = {
-	{ -3.0f, 3.0f, 3.0f, 1.0f },
-	{ 0.2f, 0.2f, 0.2f, 1.0f },
-	{ 4.0f, 4.0f, 4.0f, 1.0f },
-	{ 7.0f, 7.0f, 7.0f, 1.0f },
-	{ 1.0f, 0.2f, 0.2f, 1.0f },
-};
-
 struct Material {
 	glm::vec4 ambient;
 	glm::vec4 diffuse;
@@ -94,13 +86,14 @@ struct Material {
 	float shininess;
 };
 
-Material material = {
-	{ 0.24725f, 0.1995f, 0.0745f, 1.0f },
-	{ 0.75164f, 0.60648f, 0.22648f, 1.0f },
-	{ 0.628281, 0.555802f, 0.366065f, 1.0f },
-	0.4f*32.0f
+Light light = {
+	{ -3.0f, 3.0f, 3.0f, 1.0f },
+	{ 0.2f, 0.2f, 0.2f, 1.0f },
+	{ 4.0f, 4.0f, 4.0f, 1.0f },
+	{ 7.0f, 7.0f, 7.0f, 1.0f },
+	{ 1.0f, 0.2f, 0.2f, 1.0f },
 };
-
+ 
 unsigned int CreateShaderProgram(const char* vertShaderPath, 
                                  const char* fragShaderPath);
 
@@ -114,11 +107,18 @@ void CameraZoom(Camera* cam, float zoom);
 void setDefaultMVPShader(unsigned int* shader_id, 
                          const GLfloat *model, const GLfloat *ViewProj);
 
+void setBlinnPhongParameter(unsigned int* shader_id,
+                            const GLfloat* model,
+                            const GLfloat* viewPos,
+                            const GLfloat* ViewProj);
+void setMaterialParameter(unsigned int* shader_id, Material* mat);
+void setLightParameter(unsigned int* shader_id, Light* light);
+
 // TODO: (EricLim73) Because it uses scissor to acheive the effect, when done first
 //      objects that drawCalled later that will cover up the minimap...
 //      Need to find another way of doing this
 void startRenderMiniMap(windowTransform* wt, ColorValue* cl);
-void endRenderMiniMap(GLFWwindow* window);
+void endRenderMiniMap(GLFWwindow* window, windowTransform* wt);
 
 void createSpriteAnim(render_obj* obj);
 void drawSpriteAnim(render_obj* obj, 

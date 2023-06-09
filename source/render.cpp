@@ -22,31 +22,35 @@ void setDefaultMVPShader(unsigned int* shader_id,
     glUniformMatrix4fv(ViewProjLoc, 1, GL_FALSE, ViewProj);    
 }   
 
-
-void setLnM(unsigned int* shader_id){
-    // light
-    int loc = glGetUniformLocation(*shader_id, "light.pos");
-	glUniform4fv(loc, 1, glm::value_ptr(light.pos));
-	loc = glGetUniformLocation(*shader_id, "light.ambient");
-	glUniform4fv(loc, 1, glm::value_ptr(light.ambient));
-	loc = glGetUniformLocation(*shader_id, "light.diffuse");
-	glUniform4fv(loc, 1, glm::value_ptr(light.diffuse));
-	loc = glGetUniformLocation(*shader_id, "light.specular");
-	glUniform4fv(loc, 1, glm::value_ptr(light.specular));
-	loc = glGetUniformLocation(*shader_id, "light.att");
-	glUniform4fv(loc, 1, glm::value_ptr(light.att));
-	// material
-	loc = glGetUniformLocation(*shader_id, "material.ambient");
-	glUniform4fv(loc, 1, glm::value_ptr(material.ambient));
+// TODO: (EricLim73) Both "setLightParameter" and "setMaterialParameter"
+//       is currently called individually. Haven't decide how to structure it.
+void setMaterialParameter(unsigned int* shader_id, Material* mat){
+    // material
+	int loc = glGetUniformLocation(*shader_id, "material.ambient");
+	glUniform4fv(loc, 1, glm::value_ptr(mat->ambient));
 	loc = glGetUniformLocation(*shader_id, "material.diffuse");
-	glUniform4fv(loc, 1, glm::value_ptr(material.diffuse));
+	glUniform4fv(loc, 1, glm::value_ptr(mat->diffuse));
 	loc = glGetUniformLocation(*shader_id, "material.specular");
-	glUniform4fv(loc, 1, glm::value_ptr(material.specular));
+	glUniform4fv(loc, 1, glm::value_ptr(mat->specular));
 	loc = glGetUniformLocation(*shader_id, "material.shininess");
-	glUniform1f(loc, material.shininess);
+	glUniform1f(loc, mat->shininess);
 }
 
-void setBlinnPhongShaderUniform(unsigned int* shader_id,
+void setLightParameter(unsigned int* shader_id, Light* light){
+    // light
+    int loc = glGetUniformLocation(*shader_id, "light.pos");
+	glUniform4fv(loc, 1, glm::value_ptr(light->pos));
+	loc = glGetUniformLocation(*shader_id, "light.ambient");
+	glUniform4fv(loc, 1, glm::value_ptr(light->ambient));
+	loc = glGetUniformLocation(*shader_id, "light.diffuse");
+	glUniform4fv(loc, 1, glm::value_ptr(light->diffuse));
+	loc = glGetUniformLocation(*shader_id, "light.specular");
+	glUniform4fv(loc, 1, glm::value_ptr(light->specular));
+	loc = glGetUniformLocation(*shader_id, "light.att");
+	glUniform4fv(loc, 1, glm::value_ptr(light->att));
+}
+
+void setBlinnPhongParameter(unsigned int* shader_id,
                                 const GLfloat* model,
                                 const GLfloat* viewPos,
                                 const GLfloat* ViewProj)
@@ -559,6 +563,7 @@ void setTexture(render_obj* obj,
         std::cout << "failed to load image" << std::endl;
     }
     stbi_image_free(data);
+    stbi_set_flip_vertically_on_load(false);
     glUseProgram(obj->shader_id);
     glUniform1i(glGetUniformLocation(obj->shader_id, "Tex"), 0);
 }
@@ -576,7 +581,7 @@ void setCubeMapTexture(render_obj* obj,
     // TODO: (EricLim73) Take only the dest path, loop it,
     // and concat the "-X" part for 6 times. I think it doesn't
     // make any performance boost but at least that looks clean (this is a bad idea)
-    stbi_set_flip_vertically_on_load(true);
+
     unsigned char *cubePX = stbi_load(positiveX, 
                                     &obj->tex_width, &obj->tex_height, 
                                     &obj->nrChannels, 0);
@@ -623,15 +628,15 @@ void setCubeMapTexture(render_obj* obj,
     //            format, dataType, pixels)
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, imageType,
       obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePX);
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + 1, 0, imageType,
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, imageType,
       obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNX);
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + 2, 0, imageType,
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, imageType,
       obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePY);
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + 3, 0, imageType,
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, imageType,
       obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNY);
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + 4, 0, imageType,
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z , 0, imageType,
       obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePZ);
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + 5, 0, imageType,
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, imageType,
       obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNZ);
 
 

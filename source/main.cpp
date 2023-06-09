@@ -104,6 +104,20 @@ int main(int argc, char** argv){
 
     objects[3].shader_id = blinnPhongShader;
     generateSphere(&objects[3], SPHERE_SUBDIVISION_LEVEL);
+    Material mat = {};
+    setMaterial(&mat,	
+                glm::vec4(0.24725f, 0.1995f, 0.0745f, 1.0f),
+	            glm::vec4(0.75164f, 0.60648f, 0.22648f, 1.0f),
+	            glm::vec4(0.628281, 0.555802f, 0.366065f, 1.0f),
+	            0.4f*32.0f);
+    Light light = {};
+    setLight(&light,
+            glm::vec4(-3.0f, 3.0f, 3.0f, 1.0f),
+	        glm::vec4(0.2f, 0.2f, 0.2f, 1.0f),
+	        glm::vec4(4.0f, 4.0f, 4.0f, 1.0f),
+	        glm::vec4(7.0f, 7.0f, 7.0f, 1.0f),
+	        glm::vec4(1.0f, 0.2f, 0.2f, 1.0f));
+
 
     objects[4].shader_id = shaderSphereCube;
     generateSphere(&objects[4], SPHERE_SUBDIVISION_LEVEL);
@@ -116,7 +130,12 @@ int main(int argc, char** argv){
                       "resources/cubemap/earth/earth-map-3.png",
                       "resources/cubemap/earth/earth-map-4.png",
                       "resources/cubemap/earth/earth-map-5.png");
-
+    Material mat1 = {};
+    setMaterial(&mat1,	
+                glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+	            glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+	            glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+	            32.0f);
 
 //---------------Basic setup for variables used during rendering  
     float deltaTime = 0.0f;	// Time between current frame and last frame
@@ -222,24 +241,24 @@ int main(int argc, char** argv){
         glm::mat4 SphereModel = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 0.0f));
         SphereModel = glm::rotate(SphereModel, (float)glfwGetTime() * glm::radians(32.0f), glm::vec3(1.0f, 0.0f, 0.0f));
         SphereModel = glm::scale(SphereModel, glm::vec3(0.2f, 0.5f, 0.2f));
-        //setDefaultMVPShader(&objects[3].shader_id, 
-        //            glm::value_ptr(SphereModel), 
-        //            glm::value_ptr(cam->ViewProj));
-        setBlinnPhongShaderUniform(&objects[3].shader_id, 
-                                   glm::value_ptr(SphereModel), 
-                                   glm::value_ptr(glm::vec4(cam->cameraPos, 1.0f)), 
-                                   glm::value_ptr(cam->ViewProj));
-        // TODO: (EricLim73) this should be refactored so any object can use it
-        setLnM(&objects[3].shader_id);  
+        setBlinnPhongParameter(&objects[3].shader_id, 
+                               glm::value_ptr(SphereModel), 
+                               glm::value_ptr(glm::vec4(cam->cameraPos, 1.0f)), 
+                               glm::value_ptr(cam->ViewProj));
+        setMaterialParameter(&objects[3].shader_id, &mat);  
+        setLightParameter(&objects[3].shader_id, &light);  
         drawObj(&objects[3]);
         
-            startRenderMiniMap(&miniMapWT, &miniMapColor);
-        SphereModel = glm::mat4(1.0f);
-        setDefaultMVPShader(&objects[4].shader_id, 
-                    glm::value_ptr(SphereModel), 
-                    glm::value_ptr(cam->ViewProj));
+        SphereModel = glm::rotate(glm::mat4(1.0f), (float)glfwGetTime() * glm::radians(32.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        setBlinnPhongParameter(&objects[4].shader_id, 
+                               glm::value_ptr(SphereModel), 
+                               glm::value_ptr(glm::vec4(cam->cameraPos, 1.0f)), 
+                               glm::value_ptr(cam->ViewProj));
+        setMaterialParameter(&objects[4].shader_id, &mat1);  
+        setLightParameter(&objects[4].shader_id, &light);  
         drawObj(&objects[4]);
-            endRenderMiniMap(window, &RenderArea);
+            //startRenderMiniMap(&miniMapWT, &miniMapColor);
+            //endRenderMiniMap(window, &RenderArea);
 
     //---------------Swapbuffer & event polling
         glfwSwapBuffers(window);

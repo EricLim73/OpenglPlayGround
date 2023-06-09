@@ -10,10 +10,10 @@
 
 #include "common.cpp"
 #include "render.cpp"
- 
-// TODO: see if there is any usecase for this -> maybe when dealing with more
+  
+// TODO: (EricLim73) see if there is any usecase for this -> maybe when dealing with more
 //       event per objects within context
-// TODO: THIS IS NOT TYPICALL "Context" THAT IS USED AROUND GAME ENGINE
+// TODO: (EricLim73) THIS IS NOT TYPICALL "Context" THAT IS USED AROUND GAME ENGINE
 //      I DIDN'T HAVE ANY OTHER OPTION TO NAME THIS STRUCT. THIS HOLDS POINTERS
 //      TO THINGS THAT I NEED ACCESS FROM GLFW_CALLBACK FUNCTIONS. I DON'T NO
 //      ANY OTHER WAYS OF HANDLING THE PROBLEM.
@@ -68,15 +68,19 @@ int main(int argc, char** argv){
     unsigned int shaderProgram_id1 = -1;
     shaderProgram_id1 = CreateShaderProgram("./shaders/spriteAnim.vs", 
                                             "./shaders/spriteAnim.fs");
-    unsigned int shaderSphere = -1;
-    shaderSphere = CreateShaderProgram("./shaders/blinn-phong.vs",
+    unsigned int blinnPhongShader = -1;
+    blinnPhongShader = CreateShaderProgram("./shaders/blinn-phong.vs",
                                        "./shaders/blinn-phong.fs");
+    unsigned int shaderSphereCube = -1;
+    shaderSphereCube = CreateShaderProgram("./shaders/cubemapTex.vs",
+                                       "./shaders/cubemapTex.fs");
+                                       
 //---------------Object setup (mesh + some of them texture)
     render_obj simpleLight = {};
     simpleLight.shader_id = simpleShader;
     createCube(&simpleLight);
 
-    render_obj objects[4] = {};
+    render_obj objects[5] = {};
     objects[0].shader_id = simpleTexShader;
     createCube(&objects[0]);
     setTexture( &objects[0], 
@@ -98,12 +102,21 @@ int main(int argc, char** argv){
                 GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST,
                 "resources/textures/Dancer_walk-Sheet.png");
 
-    objects[3].shader_id = simpleTexShader;
+    objects[3].shader_id = blinnPhongShader;
     generateSphere(&objects[3], SPHERE_SUBDIVISION_LEVEL);
-    setTexture(&objects[3],
-                GL_TEXTURE_2D, GL_REPEAT, GL_REPEAT,
-                GL_NEAREST, GL_NEAREST,
-                "resources/textures/world-map.png");
+
+    objects[4].shader_id = shaderSphereCube;
+    generateSphere(&objects[4], SPHERE_SUBDIVISION_LEVEL);
+    setCubeMapTexture(&objects[4], 
+                      GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+                      GL_LINEAR, GL_LINEAR,
+                      "resources/cubemap/earth/earth-map-0.png",
+                      "resources/cubemap/earth/earth-map-1.png",
+                      "resources/cubemap/earth/earth-map-2.png",
+                      "resources/cubemap/earth/earth-map-3.png",
+                      "resources/cubemap/earth/earth-map-4.png",
+                      "resources/cubemap/earth/earth-map-5.png");
+
 
 //---------------Basic setup for variables used during rendering  
     float deltaTime = 0.0f;	// Time between current frame and last frame
@@ -128,7 +141,7 @@ int main(int argc, char** argv){
     glfwSetCursorPos(window, (double)windowWidth/2, (double)windowHeight/2);
     mouse->pos = glm::vec2((float)(windowWidth / 2), (float)(windowHeight / 2));
     
-    // TODO: change this to incoporate a whole Context for future
+    // TODO: (EricLim73) change this to incoporate a whole Context for future
     // dont know if thats the best way
     //~ SetFunction
     glfwSetWindowUserPointer(window, &context);
@@ -143,14 +156,14 @@ int main(int argc, char** argv){
     windowTransform RenderArea = {};
     RenderArea.aspectRatio = (float)windowWidth/(float)windowHeight;
 
-    // NOTE: setting up miniMap config
+    // NOTE:  (EricLim73) setting up miniMap config
     windowTransform miniMapWT = {};
     ColorValue miniMapColor = {};
     setupColorValue(&miniMapColor, 0.5f, 0.5f, 0.2f);
 
 //---------------renderLoop (GameLoop)
     while(!glfwWindowShouldClose(window)){ 
-        // TODO: find elegant way to shove these two inside callback function
+        // TODO: (EricLim73) find elegant way to shove these two inside callback function
         readKeyboard(window, &x_dir, &y_dir); 
         CameraMovement(window, cam, deltaTime); 
         
@@ -159,7 +172,7 @@ int main(int argc, char** argv){
         glClearColor(DefaultCL.R, DefaultCL.G, DefaultCL.B, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);   // state changing func
 
-        // update current renderArea -> NOTE: can be done in callback function if i try
+        // update current renderArea -> NOTE:  (EricLim73) can be done in callback function if i try
         RenderArea.pos_x = RenderArea.pos_y = 0;
         glfwGetWindowSize(window, &RenderArea.width, &RenderArea.height);
 
@@ -177,8 +190,10 @@ int main(int argc, char** argv){
                         RenderArea.pos_y + (int)(RenderArea.height * 0.05f),
                         (int)(RenderArea.width * 0.25f), (int)(RenderArea.height * 0.25f));
         }
-/* */
     //---------------ACTAUL RENDER CALLS        
+
+        /* 
+        */
         glm::mat4 lightTrans = glm::mat4(1.0f);
         lightTrans = glm::translate(lightTrans, glm::vec3( -3.0f, 3.0f, 3.0f));
         lightTrans = glm::scale(lightTrans, glm::vec3(0.2f, 0.2f, 0.2f));
@@ -190,7 +205,6 @@ int main(int argc, char** argv){
         runSpriteAnim(&frame);
         drawSpriteAnim(&objects[2], &frame, x_dir, y_dir);
 
-        startRenderMiniMap(&miniMapWT, &miniMapColor);
         glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
         model = glm::rotate(model, (float)glfwGetTime() * glm::radians(32.0f), glm::vec3(1.0f, 1.0f, 0.0f));
         setDefaultMVPShader(&objects[0].shader_id,  
@@ -204,21 +218,28 @@ int main(int argc, char** argv){
                             glm::value_ptr(model), 
                             glm::value_ptr(cam->ViewProj));
         drawObj(&objects[1]);
-            endRenderMiniMap(window, &RenderArea);
 
-        glm::mat4 SphereModel = glm::mat4(1.0f);
-        //SphereModel = glm::rotate(SphereModel, (float)glfwGetTime() * glm::radians(32.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-        //SphereModel = glm::scale(SphereModel, glm::vec3(0.2f, 0.5f, 0.2f));
-        setDefaultMVPShader(&objects[3].shader_id, 
+        glm::mat4 SphereModel = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 0.0f));
+        SphereModel = glm::rotate(SphereModel, (float)glfwGetTime() * glm::radians(32.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        SphereModel = glm::scale(SphereModel, glm::vec3(0.2f, 0.5f, 0.2f));
+        //setDefaultMVPShader(&objects[3].shader_id, 
+        //            glm::value_ptr(SphereModel), 
+        //            glm::value_ptr(cam->ViewProj));
+        setBlinnPhongShaderUniform(&objects[3].shader_id, 
+                                   glm::value_ptr(SphereModel), 
+                                   glm::value_ptr(glm::vec4(cam->cameraPos, 1.0f)), 
+                                   glm::value_ptr(cam->ViewProj));
+        // TODO: (EricLim73) this should be refactored so any object can use it
+        setLnM(&objects[3].shader_id);  
+        drawObj(&objects[3]);
+        
+            startRenderMiniMap(&miniMapWT, &miniMapColor);
+        SphereModel = glm::mat4(1.0f);
+        setDefaultMVPShader(&objects[4].shader_id, 
                     glm::value_ptr(SphereModel), 
                     glm::value_ptr(cam->ViewProj));
-        //setBlinnPhongShaderUniform(&objects[3].shader_id, 
-        //                           glm::value_ptr(SphereModel), 
-        //                           glm::value_ptr(glm::vec4(cam->cameraPos, 1.0f)), 
-        //                           glm::value_ptr(cam->ViewProj));
-        //setLnM(&objects[3].shader_id);  
-        drawObj(&objects[3]);
- 
+        drawObj(&objects[4]);
+            endRenderMiniMap(window, &RenderArea);
 
     //---------------Swapbuffer & event polling
         glfwSwapBuffers(window);
@@ -336,7 +357,7 @@ void readKeyboard(GLFWwindow *window,
     if(glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
         *x_direction += SPEED;
     }
-    // TODO: make clamp() macro
+    // TODO: (EricLim73) make clamp() macro
     if (*x_direction > 0.9f)
         *x_direction = 0.9f;
     if (*y_direction > 0.9f)

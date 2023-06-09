@@ -40,7 +40,7 @@ struct windowTransform{
     int pos_y;
     int width;
     int height;
-    //NOTE: This should stay the way it first gets inited by main()
+    //NOTE: (EricLim73) This should stay the way it first gets inited by main()
     float aspectRatio;
 };
 

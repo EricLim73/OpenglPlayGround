@@ -73,7 +73,7 @@ void drawObj(render_obj* obj)
  
 void runSpriteAnim(spriteFrameData* spriteFrameInfo)
 {
-    // TODO: the initial frame time is not perfect 
+    // TODO: (EricLim73) the initial frame time is not perfect 
     // (always depends on app start time and rednering time so...)
     // Needs fixing...?
     double timeStamp = glfwGetTime();
@@ -204,23 +204,23 @@ void subTriangles(int level, unsigned long long VertSize,
 		return;
 	}
 	if (level <= 0) { 
-        glm::vec2 texA, texB, texC;
+        //glm::vec2 texA, texB, texC;
         //texCoord calculation
-		if (a.z < 0.0F && b.z < 0.0F && c.z < 0.0F) {
-			texA = glm::vec2((atan2f(-a.x, -a.z) + (float)M_PI) / (float)M_PI / 2.0F,
-                                  0.5f - asinf(a.y) / (float)M_PI / 1.0F);
-			texB = glm::vec2((atan2f(-b.x, -b.z) + (float)M_PI) / (float)M_PI / 2.0F,
-                                  0.5f - asinf(b.y) / (float)M_PI / 1.0F);
-			texC = glm::vec2((atan2f(-c.x, -c.z) + (float)M_PI) / (float)M_PI / 2.0F,
-                                  0.5f - asinf(c.y) / (float)M_PI / 1.0F);
-		} else {
-			texA = glm::vec2(atan2f(a.x, a.z) / (float)M_PI / 2.0F,
-                                  0.5f - asinf(a.y) / (float)M_PI / 1.0F);
-			texB = glm::vec2(atan2f(b.x, b.z) / (float)M_PI / 2.0F,
-                                  0.5f - asinf(b.y) / (float)M_PI / 1.0F);
-            texC = glm::vec2(atan2f(c.x, c.z) / (float)M_PI / 2.0F,
-                                  0.5f - asinf(c.y) / (float)M_PI / 1.0F);
-		}
+		//if (a.z < 0.0F && b.z < 0.0F && c.z < 0.0F) {
+		//	texA = glm::vec2((atan2f(-a.x, -a.z) + (float)M_PI) / (float)M_PI / 2.0F,
+        //                          0.5f - asinf(a.y) / (float)M_PI / 1.0F);
+		//	texB = glm::vec2((atan2f(-b.x, -b.z) + (float)M_PI) / (float)M_PI / 2.0F,
+        //                          0.5f - asinf(b.y) / (float)M_PI / 1.0F);
+		//	texC = glm::vec2((atan2f(-c.x, -c.z) + (float)M_PI) / (float)M_PI / 2.0F,
+        //                          0.5f - asinf(c.y) / (float)M_PI / 1.0F);
+		//} else {
+		//	texA = glm::vec2(atan2f(a.x, a.z) / (float)M_PI / 2.0F,
+        //                          0.5f - asinf(a.y) / (float)M_PI / 1.0F);
+		//	texB = glm::vec2(atan2f(b.x, b.z) / (float)M_PI / 2.0F,
+        //                          0.5f - asinf(b.y) / (float)M_PI / 1.0F);
+        //    texC = glm::vec2(atan2f(c.x, c.z) / (float)M_PI / 2.0F,
+        //                          0.5f - asinf(c.y) / (float)M_PI / 1.0F);
+		//}
         glm::vec4 color( 1.0f, 1.0f, 1.0f, 1.0f );
 		color.r = ((rand() % 1000) / 1000.0F) * 0.25f + 0.75f;
 		color.g = ((rand() % 1000) / 1000.0F) * 0.25f + 0.75f;
@@ -229,19 +229,17 @@ void subTriangles(int level, unsigned long long VertSize,
         vertSphere[*VertIndex].pos = glm::vec4(a.x, a.y, a.z, 1.0F); 
         vertSphere[*VertIndex].norm = glm::vec4(a.x, a.y, a.z, 1.0F); 
         vertSphere[*VertIndex].color = color; 
-        vertSphere[*VertIndex].texCoord = texA; 
+        vertSphere[*VertIndex].texCoord = a;
 
         vertSphere[*VertIndex + 1].pos = glm::vec4(b.x, b.y, b.z, 1.0F); 
         vertSphere[*VertIndex + 1].norm = glm::vec4(b.x, b.y, b.z, 1.0F); 
         vertSphere[*VertIndex + 1].color = color;
-        vertSphere[*VertIndex + 1].texCoord = texB; 
+        vertSphere[*VertIndex + 1].texCoord = b; 
 
         vertSphere[*VertIndex + 2].pos = glm::vec4(c.x, c.y, c.z, 1.0F); 
         vertSphere[*VertIndex + 2].norm = glm::vec4(c.x, c.y, c.z, 1.0F); 
         vertSphere[*VertIndex + 2].color = color;
-        vertSphere[*VertIndex + 2].texCoord = texC;  
-
-
+        vertSphere[*VertIndex + 2].texCoord = c;   
 
         *VertIndex += 3; 
 	} else {
@@ -306,7 +304,7 @@ void generateSphere(render_obj* obj,int level) {
     glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert,color)));
     glEnableVertexAttribArray(2);  
     
-    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert,texCoord)));
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert,texCoord)));
     glEnableVertexAttribArray(3);  
 }
 
@@ -563,6 +561,90 @@ void setTexture(render_obj* obj,
     stbi_image_free(data);
     glUseProgram(obj->shader_id);
     glUniform1i(glGetUniformLocation(obj->shader_id, "Tex"), 0);
+}
+
+// NOTE:  (EricLim73) its a CUBE map, so it only expects 6 filepath
+// ok this looks dumb but its easy and i understand what it does 
+// so thats a ok for me
+void setCubeMapTexture(render_obj* obj, 
+                        int wrap_s, int wrap_t,int wrap_r, 
+                        int minFileter, int magFilter,
+                        const char* positiveX, const char* negativeX,
+                        const char* positiveY, const char* negativeY,
+                        const char* positiveZ, const char* negativeZ)
+{
+    // TODO: (EricLim73) Take only the dest path, loop it,
+    // and concat the "-X" part for 6 times. I think it doesn't
+    // make any performance boost but at least that looks clean (this is a bad idea)
+    stbi_set_flip_vertically_on_load(true);
+    unsigned char *cubePX = stbi_load(positiveX, 
+                                    &obj->tex_width, &obj->tex_height, 
+                                    &obj->nrChannels, 0);
+    unsigned char *cubeNX = stbi_load(negativeX, 
+                                    &obj->tex_width, &obj->tex_height, 
+                                    &obj->nrChannels, 0);
+    unsigned char *cubePY = stbi_load(positiveY, 
+                                    &obj->tex_width, &obj->tex_height, 
+                                    &obj->nrChannels, 0);
+    unsigned char *cubeNY = stbi_load(negativeY, 
+                                    &obj->tex_width, &obj->tex_height, 
+                                    &obj->nrChannels, 0);
+    unsigned char *cubePZ = stbi_load(positiveZ, 
+                                    &obj->tex_width, &obj->tex_height, 
+                                    &obj->nrChannels, 0);
+    unsigned char *cubeNZ = stbi_load(negativeZ, 
+                                    &obj->tex_width, &obj->tex_height, 
+                                    &obj->nrChannels, 0);
+
+    int imageType = -1;
+    switch (obj->nrChannels){
+        default: break;
+        case 1: imageType = GL_RED; break;
+        case 2: imageType = GL_RG;  break;
+        case 3: imageType = GL_RGB; break;
+        case 4: imageType = GL_RGBA; break;
+    }
+
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+    glGenTextures(1, &obj->texture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, obj->texture);
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, minFileter);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, magFilter);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, wrap_s);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, wrap_t);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, wrap_r);
+
+    // new way of doing the same thing from 4.5 and up
+    // SubImage3D(tex, level, 
+    //            xoffset, yoffset, zoffset, 
+    //            width, height, depth, 
+    //            format, dataType, pixels)
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, imageType,
+      obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePX);
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + 1, 0, imageType,
+      obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNX);
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + 2, 0, imageType,
+      obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePY);
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + 3, 0, imageType,
+      obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNY);
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + 4, 0, imageType,
+      obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePZ);
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + 5, 0, imageType,
+      obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNZ);
+
+
+    glGenerateTextureMipmap(obj->texture);
+
+    stbi_image_free(cubePX);
+    stbi_image_free(cubeNX);
+    stbi_image_free(cubePY);
+    stbi_image_free(cubeNY);
+    stbi_image_free(cubePZ);
+    stbi_image_free(cubeNZ);
+    glUseProgram(obj->shader_id);
+    glUniform1i(glGetUniformLocation(obj->shader_id, "TexCube"), 0);
 }
 
 unsigned int CreateShaderProgram(const char* vertShaderPath, 

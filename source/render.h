@@ -1,13 +1,28 @@
+// TODO: (EricLim73) I fucked up and totally forgot about "mesh" and "model"
+//      terminalogy thats used around literally every rendering engine.
+//      So when ready(hope its soon) need to refactor that shit in.
+//      Currently "render_obj" holds most of the opengl stuff.
+//      might be nice to seperate texture components(idk if this is good)
+//      and also add a "mesh" in it that holds vertex&index counts and buffer id for it.
+//      "Material" can go inside mesh (well the last tutorial i saw did that so...) or 
+//      somewhere fitting. 
+
 #define SPHERE_SUBDIVISION_LEVEL 4
 struct Vert{
     glm::vec4 pos;
     glm::vec4 norm;
     glm::vec4 color;
-    glm::vec2 texCoord;
+    // NOTE: (EricLim73) based on my almost non-existing braincell
+    //       i think i heard that when passing info to shaders(gpu)
+    //       it has specific alignment rules that it follows and 
+    //       in that rule "vec3" is treated as "vec4" 
+    glm::vec3 texCoord; 
 };
 
-// TODO: seperate texture part
+// TODO: (EricLim73) seperate texture part
 //       add indices count
+// NOTE: (EricLim73) when not set to anything, will assign -1
+//       this is bad. i know
 struct render_obj{
     unsigned int vao;
     unsigned int vbo;
@@ -99,7 +114,7 @@ void CameraZoom(Camera* cam, float zoom);
 void setDefaultMVPShader(unsigned int* shader_id, 
                          const GLfloat *model, const GLfloat *ViewProj);
 
-// TODO: Because it uses scissor to acheive the effect, when done first
+// TODO: (EricLim73) Because it uses scissor to acheive the effect, when done first
 //      objects that drawCalled later that will cover up the minimap...
 //      Need to find another way of doing this
 void startRenderMiniMap(windowTransform* wt, ColorValue* cl);
@@ -121,7 +136,7 @@ void setTexture(render_obj* obj,
                 const char* texturePath);
 
 
-// NOTE: inline functions (mostly helper functions)
+// NOTE:  (EricLim73) inline functions (mostly helper functions)
 inline void updateProj(Camera* cam, float near, float far){
     if (cam->mode == ProjectionMode::PERSPECTIVE)
     {
@@ -133,7 +148,7 @@ inline void updateProj(Camera* cam, float near, float far){
     }
 }
 
-// NOTE: reset viewport & scissor for current window size
+// NOTE:  (EricLim73) reset viewport & scissor for current window size
 inline void resetRenderArea(GLFWwindow* window, windowTransform* wt){
     glScissor(wt->pos_x, wt->pos_y, wt->width, wt->height);
     glDisable(GL_SCISSOR_TEST);

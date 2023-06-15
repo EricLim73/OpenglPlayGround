@@ -61,24 +61,45 @@ int main(int argc, char** argv){
     unsigned int simpleShader = -1;
     simpleShader = CreateShaderProgram("./shaders/simple.vs", 
                                        "./shaders/simple.fs");
+    shaderUniformSetFunction[simpleShader].index = 1;
+    shaderUniformSetFunction[simpleShader].funcPTR = setDefaultMVPShader;
 
     unsigned int simpleTexShader = -1;
     simpleTexShader = CreateShaderProgram("./shaders/simpleTex.vs",
                                            "./shaders/simpleTex.fs");
+    shaderUniformSetFunction[simpleTexShader].index = 1;
+    shaderUniformSetFunction[simpleTexShader].funcPTR = setDefaultMVPShader;
+    
+
     unsigned int shaderProgram_id1 = -1;
     shaderProgram_id1 = CreateShaderProgram("./shaders/spriteAnim.vs", 
                                             "./shaders/spriteAnim.fs");
+    shaderUniformSetFunction[shaderProgram_id1].index = 3;
+    shaderUniformSetFunction[shaderProgram_id1].funcPTR = setDefaultMVPShader;
+    
+
     unsigned int blinnPhongShader = -1;
     blinnPhongShader = CreateShaderProgram("./shaders/blinn-phong.vs",
-                                       "./shaders/blinn-phong.fs");
+                                       "./shaders/blinn-phong.fs"); 
+    shaderUniformSetFunction[blinnPhongShader].index = 0;
+    shaderUniformSetFunction[blinnPhongShader].funcPTR = setBlinnPhongParameter;
+
     unsigned int shaderSphereCube = -1;
     shaderSphereCube = CreateShaderProgram("./shaders/cubemapTex.vs",
                                        "./shaders/cubemapTex.fs");
-                                       
+    shaderUniformSetFunction[shaderSphereCube].index = 0;
+    shaderUniformSetFunction[shaderSphereCube].funcPTR = setBlinnPhongParameter;
+
+
 //---------------Object setup (mesh + some of them texture)
-    render_obj simpleLight = {};
-    simpleLight.shader_id = simpleShader;
-    createCube(&simpleLight);
+ 
+    render_obj spriteMan;
+    spriteMan.shader_id = shaderProgram_id1;
+    createSpriteAnim(&spriteMan);
+    setTexture(&spriteMan,
+                GL_TEXTURE_2D, GL_REPEAT, GL_REPEAT,
+                GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST,
+                "resources/textures/Dancer_walk-Sheet.png");
 
     render_obj objects[5] = {};
     objects[0].shader_id = simpleTexShader;
@@ -95,30 +116,18 @@ int main(int argc, char** argv){
                 GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR,
                 "resources/textures/wall.jpg" );
 
-    objects[2].shader_id = shaderProgram_id1;
-    createSpriteAnim(&objects[2]);
-    setTexture(&objects[2],
-                GL_TEXTURE_2D, GL_REPEAT, GL_REPEAT,
-                GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST,
-                "resources/textures/Dancer_walk-Sheet.png");
+    objects[2].shader_id = simpleShader;
+    createCube(&objects[2]);
 
     objects[3].shader_id = blinnPhongShader;
     generateSphere(&objects[3], SPHERE_SUBDIVISION_LEVEL);
-    Material mat = {};
-    setMaterial(&mat,	
+    //Material mat = {};
+    setMaterial(&objects[3].mat,	
                 glm::vec4(0.24725f, 0.1995f, 0.0745f, 1.0f),
 	            glm::vec4(0.75164f, 0.60648f, 0.22648f, 1.0f),
 	            glm::vec4(0.628281, 0.555802f, 0.366065f, 1.0f),
 	            0.4f*32.0f);
-    Light light = {};
-    setLight(&light,
-            glm::vec4(-3.0f, 3.0f, 3.0f, 1.0f),
-	        glm::vec4(0.2f, 0.2f, 0.2f, 1.0f),
-	        glm::vec4(4.0f, 4.0f, 4.0f, 1.0f),
-	        glm::vec4(7.0f, 7.0f, 7.0f, 1.0f),
-	        glm::vec4(1.0f, 0.2f, 0.2f, 1.0f));
-
-
+ 
     objects[4].shader_id = shaderSphereCube;
     generateSphere(&objects[4], SPHERE_SUBDIVISION_LEVEL);
     setCubeMapTexture(&objects[4], 
@@ -130,13 +139,21 @@ int main(int argc, char** argv){
                       "resources/cubemap/earth/earth-map-3.png",
                       "resources/cubemap/earth/earth-map-4.png",
                       "resources/cubemap/earth/earth-map-5.png");
-    Material mat1 = {};
-    setMaterial(&mat1,	
+    setMaterial(&objects[4].mat,	
                 glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
 	            glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
 	            glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
 	            32.0f);
 
+    
+    Light light = {};
+    setLight(&light,
+            glm::vec4(-3.0f, 3.0f, 3.0f, 1.0f),
+	        glm::vec4(0.2f, 0.2f, 0.2f, 1.0f),
+	        glm::vec4(4.0f, 4.0f, 4.0f, 1.0f),
+	        glm::vec4(7.0f, 7.0f, 7.0f, 1.0f),
+	        glm::vec4(1.0f, 0.2f, 0.2f, 1.0f));
+ 
 //---------------Basic setup for variables used during rendering  
     float deltaTime = 0.0f;	// Time between current frame and last frame
     float lastFrame = 0.0f; // Time of last frame
@@ -210,20 +227,8 @@ int main(int argc, char** argv){
                         (int)(RenderArea.width * 0.25f), (int)(RenderArea.height * 0.25f));
         }
     //---------------ACTAUL RENDER CALLS        
-
-        /* 
-        */
-        glm::mat4 lightTrans = glm::mat4(1.0f);
-        lightTrans = glm::translate(lightTrans, glm::vec3( -3.0f, 3.0f, 3.0f));
-        lightTrans = glm::scale(lightTrans, glm::vec3(0.2f, 0.2f, 0.2f));
-        setDefaultMVPShader(&simpleLight.shader_id, 
-                            glm::value_ptr(lightTrans), 
-                            glm::value_ptr(cam->ViewProj));
-        drawObj(&simpleLight);
-
-        runSpriteAnim(&frame);
-        drawSpriteAnim(&objects[2], &frame, x_dir, y_dir);
-
+ 
+        /*
         glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
         model = glm::rotate(model, (float)glfwGetTime() * glm::radians(32.0f), glm::vec3(1.0f, 1.0f, 0.0f));
         setDefaultMVPShader(&objects[0].shader_id,  
@@ -238,27 +243,65 @@ int main(int argc, char** argv){
                             glm::value_ptr(cam->ViewProj));
         drawObj(&objects[1]);
 
-        glm::mat4 SphereModel = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 0.0f));
+                
+        glm::mat4 lightTrans = glm::mat4(1.0f);
+        lightTrans = glm::translate(lightTrans, glm::vec3( -3.0f, 3.0f, 3.0f));
+        lightTrans = glm::scale(lightTrans, glm::vec3(0.2f, 0.2f, 0.2f));
+        setDefaultMVPShader(&objects[2].shader_id, 
+                            glm::value_ptr(lightTrans), 
+                            glm::value_ptr(cam->ViewProj));
+        drawObj(&objects[2]);
+
+
+        glm::mat4 SphereModel = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.5f, 0.5f));
         SphereModel = glm::rotate(SphereModel, (float)glfwGetTime() * glm::radians(32.0f), glm::vec3(1.0f, 0.0f, 0.0f));
         SphereModel = glm::scale(SphereModel, glm::vec3(0.2f, 0.5f, 0.2f));
+        // NOTE: (Ericlim73) this can be reduced if value_ptr is just float*
+        //       and add size parameter as input as well
         setBlinnPhongParameter(&objects[3].shader_id, 
                                glm::value_ptr(SphereModel), 
                                glm::value_ptr(glm::vec4(cam->cameraPos, 1.0f)), 
                                glm::value_ptr(cam->ViewProj));
-        setMaterialParameter(&objects[3].shader_id, &mat);  
+        setMaterialParameter(&objects[3].shader_id, &objects[3].mat);  
         setLightParameter(&objects[3].shader_id, &light);  
         drawObj(&objects[3]);
         
         SphereModel = glm::rotate(glm::mat4(1.0f), (float)glfwGetTime() * glm::radians(32.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        // this is used bc it has the same uniform layout
         setBlinnPhongParameter(&objects[4].shader_id, 
                                glm::value_ptr(SphereModel), 
                                glm::value_ptr(glm::vec4(cam->cameraPos, 1.0f)), 
                                glm::value_ptr(cam->ViewProj));
-        setMaterialParameter(&objects[4].shader_id, &mat1);  
+        setMaterialParameter(&objects[4].shader_id, &objects[4].mat);  
         setLightParameter(&objects[4].shader_id, &light);  
         drawObj(&objects[4]);
+        */
+        
+        runSpriteAnim(&frame);
+        drawSpriteAnim(&spriteMan, &frame, x_dir, y_dir);
+        glm::mat4 arrayMat[5] = {};
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+        model = glm::rotate(model, (float)glfwGetTime() * glm::radians(32.0f), glm::vec3(1.0f, 1.0f, 0.0f));
+        arrayMat[0] = model;
+        glm::mat4 model2 = glm::rotate(model, (float)glfwGetTime() * glm::radians(42.0f), glm::vec3(1.0f, 1.0f, 0.0f));
+        model2 = glm::translate(model2, glm::vec3(1.0f, 0.0f, -1.0f));
+        arrayMat[1] = model2;
+        glm::mat4 lightTrans = glm::mat4(1.0f);
+        lightTrans = glm::translate(lightTrans, glm::vec3( -3.0f, 3.0f, 3.0f));
+        lightTrans = glm::scale(lightTrans, glm::vec3(0.2f, 0.2f, 0.2f));
+        arrayMat[2] = lightTrans;
+        glm::mat4 SphereModel = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.5f, 0.5f));
+        SphereModel = glm::rotate(SphereModel, (float)glfwGetTime() * glm::radians(32.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        SphereModel = glm::scale(SphereModel, glm::vec3(0.2f, 0.5f, 0.2f));
+        arrayMat[3] = SphereModel;
+        glm::mat4 SphereModel2 = glm::rotate(glm::mat4(1.0f), (float)glfwGetTime() * glm::radians(32.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        arrayMat[4] = SphereModel2;
+        RenderObj(objects, arrayMat, 5, cam, &light);
+       /*
+        */
+
             //startRenderMiniMap(&miniMapWT, &miniMapColor);
-            //endRenderMiniMap(window, &RenderArea);
+            //endRenderMiniMap(window, &RenderArea);        
 
     //---------------Swapbuffer & event polling
         glfwSwapBuffers(window);
@@ -266,7 +309,7 @@ int main(int argc, char** argv){
         deltaTime = (float)glfwGetTime() - lastFrame;
         lastFrame = (float)glfwGetTime(); 
     }
-
+    
     for (int idx = 0;
         idx < ArrayCount(objects);
         ++idx)
@@ -296,14 +339,14 @@ void keyCallback(GLFWwindow* window,
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, true);
     }
-    if (key == GLFW_KEY_W && 
+    if (key == GLFW_KEY_Y && 
         action == GLFW_PRESS && 
         mods == GLFW_MOD_CONTROL)
     {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); 
     }
-    if (key == GLFW_KEY_W && 
-        action == GLFW_RELEASE &&
+    if (key == GLFW_KEY_P && 
+        action == GLFW_PRESS &&
         mods == GLFW_MOD_CONTROL)
     {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); 

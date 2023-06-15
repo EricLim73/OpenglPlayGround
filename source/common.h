@@ -13,6 +13,11 @@
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 
+#define Gigabytes(count) (uint64_t) (count * 1024 * 1024 * 1024)
+#define Megabytes(count) (uint64_t) (count * 1024 * 1024)
+#define Kilobytes(count) (uint64_t) (count * 1024)
+
+
 #define SPEED 0.005f
 
 int windowWidth = 960;

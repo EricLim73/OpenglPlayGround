@@ -51,9 +51,9 @@ void setLightParameter(unsigned int* shader_id, Light* light){
 }
 
 void setBlinnPhongParameter(unsigned int* shader_id,
-                                const GLfloat* model,
-                                const GLfloat* viewPos,
-                                const GLfloat* ViewProj)
+                            const GLfloat* model,
+                            const GLfloat* viewPos,
+                            const GLfloat* ViewProj)
 {
     int modelLoc = glGetUniformLocation(*shader_id, "model");
     int ViewPosLoc = glGetUniformLocation(*shader_id, "viewPos");
@@ -74,7 +74,41 @@ void drawObj(render_obj* obj)
     else
         glDrawElements(GL_TRIANGLES, obj->vert_count, GL_UNSIGNED_INT, 0);
 }
- 
+
+void RenderObj(render_obj* targetList, glm::mat4* modelMat, size_t count, Camera* cam, Light* light){
+    for (int i = 0; i < count; ++i){
+        unsigned int shaderID = targetList[i].shader_id;
+        void* raw_setFuncPTR = shaderUniformSetFunction[shaderID].funcPTR;
+        switch(shaderUniformSetFunction[shaderID].index){
+            case 0:{
+                void(*BlinnPhong)(unsigned int*, const float*, const float*, const float*);
+                BlinnPhong = (void(*)(unsigned int*, const float*, const float*, const float*))raw_setFuncPTR;
+                BlinnPhong(&shaderID, 
+                          glm::value_ptr(modelMat[i]), 
+                          glm::value_ptr(glm::vec4(cam->cameraPos, 1.0f)), 
+                          glm::value_ptr(cam->ViewProj));
+                setMaterialParameter(&shaderID, &targetList[i].mat);  
+                setLightParameter(&shaderID, light);  
+            }break;
+            case 1:{
+                void(*MVP_Shader)(unsigned int*, const float*, const float*);
+                MVP_Shader = (void(*)(unsigned int*, const float*, const float*))raw_setFuncPTR;
+                MVP_Shader(&shaderID, 
+                          glm::value_ptr(modelMat[i]),
+                          glm::value_ptr(cam->ViewProj));
+            }break;
+            case 2:{
+                void(*testing)(unsigned int*, const float*);
+                testing = (void(*)(unsigned int*, const float*))raw_setFuncPTR;
+                testing(&shaderID, glm::value_ptr(modelMat[i]));
+            }break;
+            default:
+            break;
+        }
+        drawObj(&targetList[i]);
+    }
+}
+
 void runSpriteAnim(spriteFrameData* spriteFrameInfo)
 {
     // TODO: (EricLim73) the initial frame time is not perfect 
@@ -208,8 +242,10 @@ void subTriangles(int level, unsigned long long VertSize,
 		return;
 	}
 	if (level <= 0) { 
+        // NOTE: (Ericlim73) This calculation will fetch 
+        //       texture coordinate with angle-representation of 
+        //       said sphere surface point
         //glm::vec2 texA, texB, texC;
-        //texCoord calculation
 		//if (a.z < 0.0F && b.z < 0.0F && c.z < 0.0F) {
 		//	texA = glm::vec2((atan2f(-a.x, -a.z) + (float)M_PI) / (float)M_PI / 2.0F,
         //                          0.5f - asinf(a.y) / (float)M_PI / 1.0F);
@@ -281,10 +317,9 @@ void generateSphere(render_obj* obj,int level) {
 	subTriangles(level, VertSize, vertSphere, &VertIndex, v[3], v[2], v[5]);
 	subTriangles(level, VertSize, vertSphere, &VertIndex, v[0], v[3], v[5]);
  
-    obj->vao  = -1;
     obj->vbo  = -1;
     obj->ebo  = -1;
-    obj->vert_count = VertIndex;
+    obj->vert_count = VertIndex;  
     
     glGenVertexArrays(1, &obj->vao);
     glBindVertexArray(obj->vao);
@@ -311,6 +346,7 @@ void generateSphere(render_obj* obj,int level) {
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert,texCoord)));
     glEnableVertexAttribArray(3);  
 }
+
 
 void createTriangle(render_obj* obj)
 {

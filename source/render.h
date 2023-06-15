@@ -1,13 +1,5 @@
-// TODO: (EricLim73) I fucked up and totally forgot about "mesh" and "model"
-//      terminalogy thats used around literally every rendering engine.
-//      So when ready(hope its soon) need to refactor that shit in.
-//      Currently "render_obj" holds most of the opengl stuff.
-//      might be nice to seperate texture components(idk if this is good)
-//      and also add a "mesh" in it that holds vertex&index counts and buffer id for it.
-//      "Material" can go inside mesh (well the last tutorial i saw did that so...) or 
-//      somewhere fitting. 
+ #define SPHERE_SUBDIVISION_LEVEL 4
 
-#define SPHERE_SUBDIVISION_LEVEL 4
 struct Vert{
     glm::vec4 pos;
     glm::vec4 norm;
@@ -19,31 +11,21 @@ struct Vert{
     glm::vec3 texCoord; 
 };
 
-// TODO: (EricLim73) seperate texture part
-//       add indices count
-// NOTE: (EricLim73) when not set to anything, will assign -1
-//       this is bad. i know
-struct render_obj{
-    unsigned int vao;
-    unsigned int vbo;
-    unsigned int ebo;
-    unsigned int shader_id;
-    unsigned int vert_count;
-
-    unsigned int texture;
-    int tex_width;
-    int tex_height;
-    int nrChannels;
+struct Light {
+	glm::vec4 pos;
+	glm::vec4 ambient;
+	glm::vec4 diffuse;
+	glm::vec4 specular;
+	glm::vec4 att;
 };
 
-struct spriteFrameData{
-    double timeOffset;          // for storing timing for animation
-    float uv_x;
-    float uv_y;
-    unsigned short nx_frames;   // 0~65,535
-    unsigned short ny_frames;   // 0~65,535
-    unsigned short frames_ps;
+struct Material {
+	glm::vec4 ambient;
+	glm::vec4 diffuse;
+	glm::vec4 specular;
+	float shininess;
 };
+
 
 enum class ProjectionMode : unsigned short{
     PERSPECTIVE,
@@ -70,30 +52,44 @@ struct Camera{
     ProjectionMode mode;
 };
 
+// TODO: (EricLim73) seperate texture part
+//       add indices count
+// NOTE: (EricLim73) when not set to anything, will assign -1
+//       this is bad. i know
+struct render_obj{
+    unsigned int vao;
+    unsigned int vbo;
+    unsigned int ebo;
+    unsigned int shader_id;
+    unsigned int vert_count;
 
-struct Light {
-	glm::vec4 pos;
-	glm::vec4 ambient;
-	glm::vec4 diffuse;
-	glm::vec4 specular;
-	glm::vec4 att;
+    Material mat;
+
+    // TODO: (Ericlim73) most likly will get fused with Material
+    unsigned int texture;
+    int tex_width;
+    int tex_height;
+    int nrChannels;
+};
+  
+struct spriteFrameData{
+    double timeOffset;          // for storing timing for animation
+    float uv_x;
+    float uv_y;
+    unsigned short nx_frames;   // 0~65,535
+    unsigned short ny_frames;   // 0~65,535
+    unsigned short frames_ps;
 };
 
-struct Material {
-	glm::vec4 ambient;
-	glm::vec4 diffuse;
-	glm::vec4 specular;
-	float shininess;
-};
+struct pairS{
+    void* funcPTR;
+    unsigned int index;    
+}; 
+// NOTE: Just for now
+static pairS shaderUniformSetFunction[100];
 
-Light light = {
-	{ -3.0f, 3.0f, 3.0f, 1.0f },
-	{ 0.2f, 0.2f, 0.2f, 1.0f },
-	{ 4.0f, 4.0f, 4.0f, 1.0f },
-	{ 7.0f, 7.0f, 7.0f, 1.0f },
-	{ 1.0f, 0.2f, 0.2f, 1.0f },
-};
- 
+
+//~ Functions
 unsigned int CreateShaderProgram(const char* vertShaderPath, 
                                  const char* fragShaderPath);
 
@@ -134,7 +130,6 @@ void setTexture(render_obj* obj,
                 int textureType, int wrap_s, int wrap_t, 
                 int minFileter, int magFilter, 
                 const char* texturePath);
-
 
 // NOTE:  (EricLim73) inline functions (mostly helper functions)
 inline void updateProj(Camera* cam, float near, float far){

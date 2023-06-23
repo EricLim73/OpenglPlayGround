@@ -42,16 +42,16 @@ struct TextureData{
     int nrChannels; 
 };
 // light parameter
-struct Light2 {
+struct Light {
     glm::vec3 position { glm::vec3(0.0f, 0.0f, 1.0f) };
     glm::vec3 ambient { glm::vec3(0.1f, 0.1f, 0.1f) };
     glm::vec3 diffuse { glm::vec3(0.5f, 0.5f, 0.5f) };
     glm::vec3 specular { glm::vec3(1.0f, 1.0f, 1.0f) };
 };
-Light2 m_light;
+Light m_light;
 
 // material parameter
-struct Material2 {
+struct Material {
     union{
         TextureData textures[3];
         struct{
@@ -74,7 +74,7 @@ struct Material2 {
 //                    so i will use SoA for game obejct looping and stick with AoS for this one
 struct renderPrimitive{
     TextureData* texData;
-    Material2 material;
+    Material material;
     unsigned int vao;
     unsigned int vbo;
     unsigned int ebo;
@@ -111,9 +111,16 @@ void CameraZoom(Camera* cam, float zoom);
 void setDefaultMVPShader(unsigned int* shader_id, 
                          Camera* cam,
                          glm::mat4* model);
+void setLightShaderParameter(unsigned int* shader_id, 
+                             Camera* cam, Material* m_material, 
+                             Light* m_light, glm::mat4* model);
+
 // Sprite Render Functions //
 void createSpriteAnim(renderPrimitive* obj);
-
+void runSpriteAnim(spriteFrameData* spriteFrameInfo);
+void setSpriteUniform(renderPrimitive* obj, 
+                      spriteFrameData* spriteFrameInfo, 
+                      float x_dir, float y_dir);
 
 // Render Function //
 void drawObj(renderPrimitive* obj);
@@ -122,13 +129,25 @@ void drawObj(renderPrimitive* obj);
 void createTriangle(renderPrimitive* obj);
 void createSquare(renderPrimitive* obj); 
 void createCube(renderPrimitive* obj); 
-void generateSphere(renderPrimitive* obj, int level);
+void createSphere(renderPrimitive* obj, int level);
 
 // TEXTURE //
+void setSingleTexture(renderPrimitive* obj, TextureData* textureTarget, 
+                      int textureType, int wrap_s, int wrap_t, 
+                      int minFileter, int magFilter, 
+                      const char* texturePath,
+                      const char* uniformName, unsigned short textureUnit);
+
 void setTextures(renderPrimitive* obj, unsigned int textureCount, 
                  int textureType, int wrap_s, int wrap_t, 
                  int minFileter, int magFilter,
                  const char** texturePath, const char** uniformName);
+
+void setMaterials(renderPrimitive* obj, unsigned int textureCount,
+                  int textureType, int wrap_s, int wrap_t, 
+                  int minFileter, int magFilter,
+                  const char** texturePath, const char** uniformName);
+
 void bindTextures(renderPrimitive* obj);
 
 void setCubeMapTexture(renderPrimitive* obj, TextureData* targetTexture, 

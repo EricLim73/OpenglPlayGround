@@ -13,8 +13,8 @@ void setDefaultMVPShader(unsigned int* shader_id,
 
 // TODO: general idea of the function NOT USED YET
 void setLightShaderParameter(unsigned int* shader_id, 
-                             Camera* cam, Material2* m_material, 
-                             Light2* m_light, glm::mat4* model)
+                             Camera* cam, Material* m_material, 
+                             Light* m_light, glm::mat4* model)
 {
     int modelLoc = glGetUniformLocation(*shader_id, "model"); 
     int ViewProjLoc = glGetUniformLocation(*shader_id, "ViewProj");
@@ -70,20 +70,6 @@ void runSpriteAnim(spriteFrameData* spriteFrameInfo)
     }
 }
 
-void drawSpriteAnim(renderPrimitive* obj, spriteFrameData* spriteFrameInfo, float x_dir, float y_dir)
-{
-    glUseProgram(obj->shader_id);
-    bindTextures(obj);
-    glUniform1f(glGetUniformLocation(obj->shader_id, "x_dir"), x_dir);
-    glUniform1f(glGetUniformLocation(obj->shader_id, "y_dir"), y_dir);
-    glUniform1f(glGetUniformLocation(obj->shader_id, "uv_x"), spriteFrameInfo->uv_x);
-    glUniform1f(glGetUniformLocation(obj->shader_id, "uv_y"), spriteFrameInfo->uv_y);
-    glUniform1f(glGetUniformLocation(obj->shader_id, "nx_frames"), spriteFrameInfo->nx_frames);
-    glUniform1f(glGetUniformLocation(obj->shader_id, "ny_frames"), spriteFrameInfo->ny_frames);
-    glBindVertexArray(obj->vao);
-    glDrawElements(GL_TRIANGLES, obj->vert_count, GL_UNSIGNED_INT, 0);
-}
-
 void drawObj(renderPrimitive* obj)
 {
     glBindVertexArray(obj->vao);         
@@ -94,12 +80,11 @@ void drawObj(renderPrimitive* obj)
         glDrawElements(GL_TRIANGLES, obj->vert_count, GL_UNSIGNED_INT, 0);
 }
 
-
-
 void setSpriteUniform(renderPrimitive* obj, 
                       spriteFrameData* spriteFrameInfo, 
                       float x_dir, float y_dir)
 {
+    glUseProgram(obj->shader_id);
     glUniform1f(glGetUniformLocation(obj->shader_id, "x_dir"), x_dir);
     glUniform1f(glGetUniformLocation(obj->shader_id, "y_dir"), y_dir);
     glUniform1f(glGetUniformLocation(obj->shader_id, "uv_x"), spriteFrameInfo->uv_x);
@@ -251,7 +236,7 @@ void subTriangles(int level, unsigned long long VertSize,
     }
 }
 
-void generateSphere(renderPrimitive* obj,int level) {
+void createSphere(renderPrimitive* obj,int level) {
     static glm::vec3 v[6] = {
         { +1, 0, 0 },
         { 0, +1, 0 },

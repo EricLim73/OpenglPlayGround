@@ -72,7 +72,7 @@ int main(int argc, char** argv){
     renderPrimitive globe = {};
     globe.shader_id = cubemapTex;
     globe.material.shininess = 7.0f;
-    generateSphere(&globe, SPHERE_SUBDIVISION_LEVEL);
+    createSphere(&globe, SPHERE_SUBDIVISION_LEVEL);
     setCubeMapTexture(&globe, &globe.material.textures[0], "material.diffuse",
                       GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
                       GL_LINEAR, GL_LINEAR,
@@ -195,7 +195,8 @@ int main(int argc, char** argv){
             drawObj(&globe);   
  
             runSpriteAnim(&frame);
-            drawSpriteAnim(&spriteMan, &frame, x_dir, y_dir);
+            setSpriteUniform(&spriteMan, &frame, x_dir, y_dir);
+            drawObj(&spriteMan);   
 
     //---------------Swapbuffer & event polling
         glfwSwapBuffers(window);

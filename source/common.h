@@ -17,8 +17,12 @@
 #define Megabytes(count) (uint64_t) (count * 1024 * 1024)
 #define Kilobytes(count) (uint64_t) (count * 1024)
 
-
 #define SPEED 0.005f
+
+#define global          static
+#define local_presist   static
+#define internal        static
+
 
 int windowWidth = 960;
 int windowHeight = 720;

@@ -1,9 +1,9 @@
 #version 460 core
 
 in vec4 wPos;
-in vec4 wNorm; 
-in vec3 TexCoord; // v3
-out vec4 FragColor;
+in vec4 wNorm;
+in vec2 wTexCoord;
+out vec4 fragColor;
 
 struct Light {
     vec3 position;
@@ -12,35 +12,42 @@ struct Light {
     vec3 specular;
 };
 uniform Light light;
-
+ 
 struct Material {
-	samplerCube diffuse;
-    samplerCube specular;
-    samplerCube emission;
+	sampler2D diffuse;
+    sampler2D specular;
+    sampler2D emission;
 
     float shininess;
 };
 uniform Material material;
 
 uniform vec3 viewPos;
+uniform float timeStamp;
+
+vec3 calculate_emission()
+{
+	vec3 show = step(vec3(1.0), vec3(1.0) - texture(material.specular, wTexCoord).rgb);
+	return texture(material.emission, vec2(wTexCoord.x, wTexCoord.y + timeStamp)).rgb * show;
+}
 
 void main() {
-	// NOTE: just to make it so that the opposite side don't so dark.
-	vec3 texColor = min(1.5 * texture(material.diffuse, TexCoord).rgb, 
-						vec3(1.0f, 1.0f, 1.0f));
+	vec3 texColor = texture2D(material.diffuse, wTexCoord).rgb;
   	vec3 ambient = texColor * light.ambient;
  
     vec3 lightDir = normalize(light.position - wPos.xyz);
     vec3 pixelNorm = normalize(wNorm.xyz);
     float diff = max(dot(pixelNorm, lightDir), 0.0);
 	vec3 diffuse = diff * texColor * light.diffuse;
-	// TODO: (Ericlim73) For now setting it to 1.
-	vec3 specColor = vec3(1.0f, 1.0f, 1.0f);
+ 
+	vec3 specColor = texture2D(material.specular, wTexCoord).rgb;
     vec3 viewDir = normalize(viewPos - wPos.xyz);
     vec3 reflectDir = reflect(-lightDir, pixelNorm);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
     vec3 specular = spec * specColor * light.specular;
 	
-    vec3 result = ambient + diffuse + specular;
-    FragColor = vec4(result, 1.0);
+	vec3 emission = calculate_emission();
+
+    vec3 result = ambient + diffuse + specular + emission;
+    fragColor = vec4(result, 1.0);
 }

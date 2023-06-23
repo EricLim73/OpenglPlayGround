@@ -1,111 +1,56 @@
 #include "render.h"
 
-void startRenderMiniMap(windowTransform* wt, ColorValue* cl){
-    glViewport(wt->pos_x, wt->pos_y, wt->width, wt->height);
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(wt->pos_x, wt->pos_y, wt->width, wt->height);
-    glClearColor(cl->R, cl->G, cl->B, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-void endRenderMiniMap(GLFWwindow* window, windowTransform* wt){
-    resetRenderArea(window, wt);
-}
-
 void setDefaultMVPShader(unsigned int* shader_id, 
-                         const GLfloat *model, 
-                         const GLfloat *ViewProj)
+                         Camera* cam,
+                         glm::mat4* model)
 {
     int modelLoc = glGetUniformLocation(*shader_id, "model"); 
     int ViewProjLoc = glGetUniformLocation(*shader_id, "ViewProj");
     glUseProgram(*shader_id);
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, model);   
-    glUniformMatrix4fv(ViewProjLoc, 1, GL_FALSE, ViewProj);    
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(*model));    
+    glUniformMatrix4fv(ViewProjLoc, 1, GL_FALSE, glm::value_ptr(cam->ViewProj));   
 }   
 
-// TODO: (EricLim73) Both "setLightParameter" and "setMaterialParameter"
-//       is currently called individually. Haven't decide how to structure it.
-void setMaterialParameter(unsigned int* shader_id, Material* mat){
-    // material
-	int loc = glGetUniformLocation(*shader_id, "material.ambient");
-	glUniform4fv(loc, 1, glm::value_ptr(mat->ambient));
-	loc = glGetUniformLocation(*shader_id, "material.diffuse");
-	glUniform4fv(loc, 1, glm::value_ptr(mat->diffuse));
-	loc = glGetUniformLocation(*shader_id, "material.specular");
-	glUniform4fv(loc, 1, glm::value_ptr(mat->specular));
-	loc = glGetUniformLocation(*shader_id, "material.shininess");
-	glUniform1f(loc, mat->shininess);
-}
-
-void setLightParameter(unsigned int* shader_id, Light* light){
-    // light
-    int loc = glGetUniformLocation(*shader_id, "light.pos");
-	glUniform4fv(loc, 1, glm::value_ptr(light->pos));
-	loc = glGetUniformLocation(*shader_id, "light.ambient");
-	glUniform4fv(loc, 1, glm::value_ptr(light->ambient));
-	loc = glGetUniformLocation(*shader_id, "light.diffuse");
-	glUniform4fv(loc, 1, glm::value_ptr(light->diffuse));
-	loc = glGetUniformLocation(*shader_id, "light.specular");
-	glUniform4fv(loc, 1, glm::value_ptr(light->specular));
-	loc = glGetUniformLocation(*shader_id, "light.att");
-	glUniform4fv(loc, 1, glm::value_ptr(light->att));
-}
-
-void setBlinnPhongParameter(unsigned int* shader_id,
-                            const GLfloat* model,
-                            const GLfloat* viewPos,
-                            const GLfloat* ViewProj)
+// TODO: general idea of the function NOT USED YET
+void setLightShaderParameter(unsigned int* shader_id, 
+                             Camera* cam, Material2* m_material, 
+                             Light2* m_light, glm::mat4* model)
 {
-    int modelLoc = glGetUniformLocation(*shader_id, "model");
-    int ViewPosLoc = glGetUniformLocation(*shader_id, "viewPos");
+    int modelLoc = glGetUniformLocation(*shader_id, "model"); 
     int ViewProjLoc = glGetUniformLocation(*shader_id, "ViewProj");
+    int lightPosLoc = glGetUniformLocation(*shader_id, "light.position");
+    int lightAmbientLoc = glGetUniformLocation(*shader_id, "light.ambient");
+    int lightDiffuseLoc = glGetUniformLocation(*shader_id, "light.diffuse");
+    int lightSpecularLoc = glGetUniformLocation(*shader_id, "light.specular");
+    int materialShininessLoc = glGetUniformLocation(*shader_id, "material.shininess");
+    int viewPosLoc = glGetUniformLocation(*shader_id, "viewPos");
+    
     glUseProgram(*shader_id);
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, model);   
-    glUniformMatrix4fv(ViewPosLoc, 1, GL_FALSE, viewPos); 
-    glUniformMatrix4fv(ViewProjLoc, 1, GL_FALSE, ViewProj);
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(*model));    
+    glUniformMatrix4fv(ViewProjLoc, 1, GL_FALSE, glm::value_ptr(cam->ViewProj));
+    glUniform3fv(lightPosLoc, 1, glm::value_ptr(glm::vec3(m_light->position)));
+	glUniform3fv(lightAmbientLoc, 1, glm::value_ptr(glm::vec3(m_light->ambient)));
+	glUniform3fv(lightDiffuseLoc, 1, glm::value_ptr(glm::vec3(m_light->diffuse)));
+	glUniform3fv(lightSpecularLoc, 1, glm::value_ptr(glm::vec3(m_light->specular)));
+	glUniform1f(materialShininessLoc, m_material->shininess);
+    	glUniform1f(glGetUniformLocation(*shader_id, "timeStamp"), (float)glfwGetTime());
+    glUniform3fv(viewPosLoc, 1, glm::value_ptr(cam->cameraPos));
 }
 
-void drawObj(render_obj* obj)
-{
-    glBindVertexArray(obj->vao);         
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, obj->texture);
-    if (obj->ebo == -1)
-        glDrawArrays(GL_TRIANGLES,0, obj->vert_count);
-    else
-        glDrawElements(GL_TRIANGLES, obj->vert_count, GL_UNSIGNED_INT, 0);
-}
-
-void RenderObj(render_obj* targetList, glm::mat4* modelMat, size_t count, Camera* cam, Light* light){
-    for (int i = 0; i < count; ++i){
-        unsigned int shaderID = targetList[i].shader_id;
-        void* raw_setFuncPTR = shaderUniformSetFunction[shaderID].funcPTR;
-        switch(shaderUniformSetFunction[shaderID].index){
-            case 0:{
-                void(*BlinnPhong)(unsigned int*, const float*, const float*, const float*);
-                BlinnPhong = (void(*)(unsigned int*, const float*, const float*, const float*))raw_setFuncPTR;
-                BlinnPhong(&shaderID, 
-                          glm::value_ptr(modelMat[i]), 
-                          glm::value_ptr(glm::vec4(cam->cameraPos, 1.0f)), 
-                          glm::value_ptr(cam->ViewProj));
-                setMaterialParameter(&shaderID, &targetList[i].mat);  
-                setLightParameter(&shaderID, light);  
-            }break;
-            case 1:{
-                void(*MVP_Shader)(unsigned int*, const float*, const float*);
-                MVP_Shader = (void(*)(unsigned int*, const float*, const float*))raw_setFuncPTR;
-                MVP_Shader(&shaderID, 
-                          glm::value_ptr(modelMat[i]),
-                          glm::value_ptr(cam->ViewProj));
-            }break;
-            case 2:{
-                void(*testing)(unsigned int*, const float*);
-                testing = (void(*)(unsigned int*, const float*))raw_setFuncPTR;
-                testing(&shaderID, glm::value_ptr(modelMat[i]));
-            }break;
-            default:
-            break;
-        }
-        drawObj(&targetList[i]);
+void bindTextures(renderPrimitive* obj){
+    if (obj->textureCount > 31)
+        return;
+    TextureData* texture = obj->texData;
+    unsigned int loopCount = obj->textureCount;
+    int textureUnit = GL_TEXTURE0;
+    if (obj->material.isValid){
+        texture = obj->material.textures;
+        loopCount = ArrayCount(obj->material.textures);
+    }
+    for (unsigned int i = 0; i < loopCount; ++i){
+        glActiveTexture(textureUnit);
+        glBindTexture(GL_TEXTURE_2D, texture[i].texture);
+        textureUnit+=1;
     }
 }
 
@@ -125,10 +70,10 @@ void runSpriteAnim(spriteFrameData* spriteFrameInfo)
     }
 }
 
-void drawSpriteAnim(render_obj* obj, spriteFrameData* spriteFrameInfo, float x_dir, float y_dir)
+void drawSpriteAnim(renderPrimitive* obj, spriteFrameData* spriteFrameInfo, float x_dir, float y_dir)
 {
     glUseProgram(obj->shader_id);
-    glBindTexture(GL_TEXTURE_2D, obj->texture);
+    bindTextures(obj);
     glUniform1f(glGetUniformLocation(obj->shader_id, "x_dir"), x_dir);
     glUniform1f(glGetUniformLocation(obj->shader_id, "y_dir"), y_dir);
     glUniform1f(glGetUniformLocation(obj->shader_id, "uv_x"), spriteFrameInfo->uv_x);
@@ -137,6 +82,30 @@ void drawSpriteAnim(render_obj* obj, spriteFrameData* spriteFrameInfo, float x_d
     glUniform1f(glGetUniformLocation(obj->shader_id, "ny_frames"), spriteFrameInfo->ny_frames);
     glBindVertexArray(obj->vao);
     glDrawElements(GL_TRIANGLES, obj->vert_count, GL_UNSIGNED_INT, 0);
+}
+
+void drawObj(renderPrimitive* obj)
+{
+    glBindVertexArray(obj->vao);         
+    bindTextures(obj);
+    if (obj->ebo == -1)
+        glDrawArrays(GL_TRIANGLES,0, obj->vert_count);
+    else
+        glDrawElements(GL_TRIANGLES, obj->vert_count, GL_UNSIGNED_INT, 0);
+}
+
+
+
+void setSpriteUniform(renderPrimitive* obj, 
+                      spriteFrameData* spriteFrameInfo, 
+                      float x_dir, float y_dir)
+{
+    glUniform1f(glGetUniformLocation(obj->shader_id, "x_dir"), x_dir);
+    glUniform1f(glGetUniformLocation(obj->shader_id, "y_dir"), y_dir);
+    glUniform1f(glGetUniformLocation(obj->shader_id, "uv_x"), spriteFrameInfo->uv_x);
+    glUniform1f(glGetUniformLocation(obj->shader_id, "uv_y"), spriteFrameInfo->uv_y);
+    glUniform1f(glGetUniformLocation(obj->shader_id, "nx_frames"), spriteFrameInfo->nx_frames);
+    glUniform1f(glGetUniformLocation(obj->shader_id, "ny_frames"), spriteFrameInfo->ny_frames);
 }
 
 void setCamera( Camera* cam, ProjectionMode mode, 
@@ -234,89 +203,77 @@ void CameraZoom(Camera* cam, float zoom){
 }
 
 void subTriangles(int level, unsigned long long VertSize,
-                  Vert* vertSphere, int* VertIndex, 
-                  const glm::vec3 a, const glm::vec3 b, const glm::vec3 c) 
+                Vert* vertSphere, int* VertIndex, 
+                const glm::vec3 a, const glm::vec3 b, const glm::vec3 c) 
 {
-	if (*VertIndex >= VertSize) {
-		printf("vertex buffer overflow...\n");
-		return;
-	}
-	if (level <= 0) { 
-        // NOTE: (Ericlim73) This calculation will fetch 
-        //       texture coordinate with angle-representation of 
-        //       said sphere surface point
-        //glm::vec2 texA, texB, texC;
-		//if (a.z < 0.0F && b.z < 0.0F && c.z < 0.0F) {
-		//	texA = glm::vec2((atan2f(-a.x, -a.z) + (float)M_PI) / (float)M_PI / 2.0F,
-        //                          0.5f - asinf(a.y) / (float)M_PI / 1.0F);
-		//	texB = glm::vec2((atan2f(-b.x, -b.z) + (float)M_PI) / (float)M_PI / 2.0F,
-        //                          0.5f - asinf(b.y) / (float)M_PI / 1.0F);
-		//	texC = glm::vec2((atan2f(-c.x, -c.z) + (float)M_PI) / (float)M_PI / 2.0F,
-        //                          0.5f - asinf(c.y) / (float)M_PI / 1.0F);
-		//} else {
-		//	texA = glm::vec2(atan2f(a.x, a.z) / (float)M_PI / 2.0F,
-        //                          0.5f - asinf(a.y) / (float)M_PI / 1.0F);
-		//	texB = glm::vec2(atan2f(b.x, b.z) / (float)M_PI / 2.0F,
-        //                          0.5f - asinf(b.y) / (float)M_PI / 1.0F);
-        //    texC = glm::vec2(atan2f(c.x, c.z) / (float)M_PI / 2.0F,
-        //                          0.5f - asinf(c.y) / (float)M_PI / 1.0F);
-		//}
-        glm::vec4 color( 1.0f, 1.0f, 1.0f, 1.0f );
-		color.r = ((rand() % 1000) / 1000.0F) * 0.25f + 0.75f;
-		color.g = ((rand() % 1000) / 1000.0F) * 0.25f + 0.75f;
-		color.b = ((rand() % 1000) / 1000.0F) * 0.25f + 0.75f;
-        
+    if (*VertIndex >= VertSize) {
+        printf("vertex buffer overflow...\n");
+        return;
+    }
+    /*
+    if (a.z < 0.0F && b.z < 0.0F && c.z < 0.0F) {
+        texCoordSphere[numVertSphere].s = (atan2f(-a.x, -a.z) + (float)M_PI) / (float)M_PI / 2.0F;
+        texCoordSphere[numVertSphere].t = 0.5f - asinf(a.y) / (float)M_PI / 1.0F;
+        texCoordSphere[numVertSphere+1].s = (atan2f(-b.x, -b.z) + (float)M_PI) / (float)M_PI / 2.0F;
+        texCoordSphere[numVertSphere+1].t = 0.5f - asinf(b.y) / (float)M_PI / 1.0F;
+        texCoordSphere[numVertSphere+2].s = (atan2f(-c.x, -c.z) + (float)M_PI) / (float)M_PI / 2.0F;
+        texCoordSphere[numVertSphere+2].t = 0.5f - asinf(c.y) / (float)M_PI / 1.0F;
+    } else {
+        texCoordSphere[numVertSphere].s = atan2f(a.x, a.z) / (float)M_PI / 2.0F;
+        texCoordSphere[numVertSphere].t = 0.5f - asinf(a.y) / (float)M_PI / 1.0F;
+        texCoordSphere[numVertSphere+1].s = atan2f(b.x, b.z) / (float)M_PI / 2.0F;
+        texCoordSphere[numVertSphere+1].t = 0.5f - asinf(b.y) / (float)M_PI / 1.0F;
+        texCoordSphere[numVertSphere+2].s = atan2f(c.x, c.z) / (float)M_PI / 2.0F;
+        texCoordSphere[numVertSphere+2].t = 0.5f - asinf(c.y) / (float)M_PI / 1.0F; 
+    }
+    */
+
+    if (level <= 0) { 
         vertSphere[*VertIndex].pos = glm::vec4(a.x, a.y, a.z, 1.0F); 
-        vertSphere[*VertIndex].norm = glm::vec4(a.x, a.y, a.z, 1.0F); 
-        vertSphere[*VertIndex].color = color; 
-        vertSphere[*VertIndex].texCoord = a;
-
+        vertSphere[*VertIndex].norm = glm::vec4(a.x, a.y, a.z, 1.0F);  
+        vertSphere[*VertIndex].texCoord = glm::vec4(a.x, a.y, a.z, 1.0F);
         vertSphere[*VertIndex + 1].pos = glm::vec4(b.x, b.y, b.z, 1.0F); 
-        vertSphere[*VertIndex + 1].norm = glm::vec4(b.x, b.y, b.z, 1.0F); 
-        vertSphere[*VertIndex + 1].color = color;
-        vertSphere[*VertIndex + 1].texCoord = b; 
-
+        vertSphere[*VertIndex + 1].norm = glm::vec4(b.x, b.y, b.z, 1.0F);  
+        vertSphere[*VertIndex + 1].texCoord = glm::vec4(b.x, b.y, b.z, 1.0F); 
         vertSphere[*VertIndex + 2].pos = glm::vec4(c.x, c.y, c.z, 1.0F); 
-        vertSphere[*VertIndex + 2].norm = glm::vec4(c.x, c.y, c.z, 1.0F); 
-        vertSphere[*VertIndex + 2].color = color;
-        vertSphere[*VertIndex + 2].texCoord = c;   
-
+        vertSphere[*VertIndex + 2].norm = glm::vec4(c.x, c.y, c.z, 1.0F);  
+        vertSphere[*VertIndex + 2].texCoord = glm::vec4(c.x, c.y, c.z, 1.0F);   
         *VertIndex += 3; 
-	} else {
-		glm::vec3 ab = normalize(a + b);
-		glm::vec3 bc = normalize(b + c);
-		glm::vec3 ca = normalize(c + a);
-		// call subTriangles
-		subTriangles(level - 1, VertSize, vertSphere, VertIndex, a, ab, ca);
-		subTriangles(level - 1, VertSize, vertSphere, VertIndex, b, bc, ab);
-		subTriangles(level - 1, VertSize, vertSphere, VertIndex, c, ca, bc);
-		subTriangles(level - 1, VertSize, vertSphere, VertIndex, ab, bc, ca);
-	}
+    } else {
+        glm::vec3 ab = normalize(a + b);
+        glm::vec3 bc = normalize(b + c);
+        glm::vec3 ca = normalize(c + a);
+        // call subTriangles
+        subTriangles(level - 1, VertSize, vertSphere, VertIndex, a, ab, ca);
+        subTriangles(level - 1, VertSize, vertSphere, VertIndex, b, bc, ab);
+        subTriangles(level - 1, VertSize, vertSphere, VertIndex, c, ca, bc);
+        subTriangles(level - 1, VertSize, vertSphere, VertIndex, ab, bc, ca);
+    }
 }
 
-void generateSphere(render_obj* obj,int level) {
+void generateSphere(renderPrimitive* obj,int level) {
     static glm::vec3 v[6] = {
-		{ +1, 0, 0 },
-		{ 0, +1, 0 },
-		{ -1, 0, 0 },
-		{ 0, -1, 0 },
-		{ 0, 0, +1 },
-		{ 0, 0, -1 },
-	};
+        { +1, 0, 0 },
+        { 0, +1, 0 },
+        { -1, 0, 0 },
+        { 0, -1, 0 },
+        { 0, 0, +1 },
+        { 0, 0, -1 },
+    };
     // pos, normal, color, texCoord
     //glm::vec4 vertSphere[10240 * 4];
     Vert vertSphere[10240];
     int VertIndex = 0; 
     auto VertSize = ArrayCount(vertSphere);
-	subTriangles(level, VertSize, vertSphere, &VertIndex, v[0], v[1], v[4]);
-	subTriangles(level, VertSize, vertSphere, &VertIndex, v[1], v[2], v[4]);
-	subTriangles(level, VertSize, vertSphere, &VertIndex, v[2], v[3], v[4]);
-	subTriangles(level, VertSize, vertSphere, &VertIndex, v[3], v[0], v[4]);
-	subTriangles(level, VertSize, vertSphere, &VertIndex, v[1], v[0], v[5]);
-	subTriangles(level, VertSize, vertSphere, &VertIndex, v[2], v[1], v[5]);
-	subTriangles(level, VertSize, vertSphere, &VertIndex, v[3], v[2], v[5]);
-	subTriangles(level, VertSize, vertSphere, &VertIndex, v[0], v[3], v[5]);
- 
+    subTriangles(level, VertSize, vertSphere, &VertIndex, v[0], v[1], v[4]);
+    subTriangles(level, VertSize, vertSphere, &VertIndex, v[1], v[2], v[4]);
+    subTriangles(level, VertSize, vertSphere, &VertIndex, v[2], v[3], v[4]);
+    subTriangles(level, VertSize, vertSphere, &VertIndex, v[3], v[0], v[4]);
+    subTriangles(level, VertSize, vertSphere, &VertIndex, v[1], v[0], v[5]);
+    subTriangles(level, VertSize, vertSphere, &VertIndex, v[2], v[1], v[5]);
+    subTriangles(level, VertSize, vertSphere, &VertIndex, v[3], v[2], v[5]);
+    subTriangles(level, VertSize, vertSphere, &VertIndex, v[0], v[3], v[5]);
+
     obj->vbo  = -1;
     obj->ebo  = -1;
     obj->vert_count = VertIndex;  
@@ -327,37 +284,33 @@ void generateSphere(render_obj* obj,int level) {
     glGenBuffers(1, &obj->vbo);
     glBindBuffer(GL_ARRAY_BUFFER, obj->vbo);
     glBufferData(GL_ARRAY_BUFFER, 
-                 sizeof(vertSphere), 
-                 vertSphere, 
-                 GL_STATIC_DRAW);
-     
+                sizeof(vertSphere), 
+                vertSphere, 
+                GL_STATIC_DRAW);
+    
     
     // Attrib_location, element_count, do_Normalize?, element_size(stride), offset
     // "offset" needs typeCasting to void* of GLvoid* -> ex) (GLvoid*)(2*sizeof(float))
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)0);
     glEnableVertexAttribArray(0);
-
     glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert, norm)));
     glEnableVertexAttribArray(1);
     
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert,color)));
-    glEnableVertexAttribArray(2);  
-    
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert,texCoord)));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert,texCoord)));
     glEnableVertexAttribArray(3);  
 }
 
 
-void createTriangle(render_obj* obj)
+void createTriangle(renderPrimitive* obj)
 {
     // vertices will be processed in NDC ranging[-1~1]
     // and that will be transferred into Screen-Space Coordinates
     // pos,color,texCoord
-    float vertices[] = {
-        // positions               // colors               // texture coords
-        0.0f,  0.5f, 0.0f, 1.0f,   1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,   // top right
-       -0.5f, -0.5f, 0.0f, 1.0f,   0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f,   // bottom left
-        0.5f, -0.5f, 0.0f, 1.0f,   0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f   // bottom right
+    Vert vertices[] = {
+        // positions               // colors                 // texture coords
+    glm::vec4( 0.0f,  0.5f, 0.0f, 1.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f),  // top right
+    glm::vec4(-0.5f, -0.5f, 0.0f, 1.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f),  // bottom left
+    glm::vec4( 0.5f, -0.5f, 0.0f, 1.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f), glm::vec3(1.0f, 0.0f, 1.0f)   // bottom right
     };
     unsigned int indices[] = {  // note that we start from 0!
         0, 1, 3   // first triangle
@@ -374,33 +327,28 @@ void createTriangle(render_obj* obj)
     glGenBuffers(1, &obj->vbo);
     glBindBuffer(GL_ARRAY_BUFFER, obj->vbo);
     glBufferData(GL_ARRAY_BUFFER, 
-                 sizeof(vertices), 
-                 vertices, 
-                 GL_STATIC_DRAW);
-     
+                sizeof(vertices), 
+                vertices, 
+                GL_STATIC_DRAW);
     
-    // Attrib_location, element_count, do_Normalize?, element_size(stride), offset
-    // "offset" needs typeCasting to void* of GLvoid* -> ex) (GLvoid*)(2*sizeof(float))
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 10*sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 10*sizeof(float), (void*)(4*sizeof(float)));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert, norm)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert, texCoord)));
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 10 * sizeof(float), (void*)(8 * sizeof(float)));
-    glEnableVertexAttribArray(3);  
 }
 
-void createSquare(render_obj* obj)
+void createSquare(renderPrimitive* obj)
 {
     // vertices will be processed in NDC ranging[-1~1]
     // and that will be transferred into Screen-Space Coordinates
     // pos,color,texCoord
-    
-    float vertices[] = {
-        // positions                 // colors             // texture coords
-         0.5f,  0.5f, 0.0f, 1.0f,  1.0f, 0.0f, 0.0f, 1.0f,  1.0f, 1.0f,   // top right
-        -0.5f,  0.5f, 0.0f, 1.0f,  1.0f, 1.0f, 0.0f, 1.0f,  0.0f, 1.0f,    // top left 
-        -0.5f, -0.5f, 0.0f, 1.0f,  0.0f, 0.0f, 1.0f, 1.0f,  0.0f, 0.0f,   // bottom left
-         0.5f, -0.5f, 0.0f, 1.0f,  0.0f, 1.0f, 0.0f, 1.0f,  1.0f, 0.0f   // bottom right
+    Vert vertices[] = {
+        glm::vec4( 0.5f,  0.5f, 0.0f, 1.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f),   // top right
+        glm::vec4(-0.5f,  0.5f, 0.0f, 1.0f), glm::vec4(1.0f, 1.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 1.0f),    // top left 
+        glm::vec4(-0.5f, -0.5f, 0.0f, 1.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f),   // bottom left
+        glm::vec4( 0.5f, -0.5f, 0.0f, 1.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f), glm::vec3(1.0f, 0.0f, 1.0f)  // bottom right
     };
     
     unsigned int indices[] = {  // note that we start from 0!
@@ -411,7 +359,7 @@ void createSquare(render_obj* obj)
     obj->vao  = -1;
     obj->vbo  = -1;
     obj->ebo  = -1;
-    obj->vert_count = 6;
+    obj->vert_count = ArrayCount(indices);
     
     glGenVertexArrays(1, &obj->vao);
     glBindVertexArray(obj->vao);
@@ -419,73 +367,74 @@ void createSquare(render_obj* obj)
     glGenBuffers(1, &obj->vbo);
     glBindBuffer(GL_ARRAY_BUFFER, obj->vbo);
     glBufferData(GL_ARRAY_BUFFER, 
-                 sizeof(vertices), 
-                 vertices, 
-                 GL_STATIC_DRAW);
+                sizeof(vertices), 
+                vertices, 
+                GL_STATIC_DRAW);
     
     glGenBuffers(1, &obj->ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, obj->ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, 
-                 sizeof(indices), 
-                 indices, 
-                 GL_STATIC_DRAW);
+                sizeof(indices), 
+                indices, 
+                GL_STATIC_DRAW);
     
     // Attrib_location, element_count, do_Normalize?, element_size(stride), offset
     // "offset" needs typeCasting to void* of GLvoid* -> ex) (GLvoid*)(2*sizeof(float))
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 10*sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 10*sizeof(float), (void*)(4*sizeof(float)));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert, norm)));
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 10 * sizeof(float), (void*)(8 * sizeof(float)));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert, texCoord)));
     glEnableVertexAttribArray(2);  
 }
 
-void createCube(render_obj* obj)
+void createCube(renderPrimitive* obj)
 {
-    // vertices will be processed in NDC ranging[-1~1]
-    // and that will be transferred into Screen-Space Coordinates
-    //   4pos,                     4normal,                  2texCoord    
-    float vertices[] = {
-        -0.5f, -0.5f, -0.5f, 1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f, 0.0f, 
-         0.5f, -0.5f, -0.5f, 1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f, 0.0f, 
-         0.5f,  0.5f, -0.5f, 1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f, 1.0f, 
-        -0.5f,  0.5f, -0.5f, 1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f, 1.0f, 
-        -0.5f, -0.5f,  0.5f, 1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f, 0.0f, 
-         0.5f, -0.5f,  0.5f, 1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f, 0.0f, 
-         0.5f,  0.5f,  0.5f, 1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f, 1.0f, 
-        -0.5f,  0.5f,  0.5f, 1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f, 1.0f, 
-        -0.5f,  0.5f,  0.5f, 1.0f,  -1.0f,  0.0f,  0.0f,1.0f,  1.0f, 0.0f, 
-        -0.5f,  0.5f, -0.5f, 1.0f,  -1.0f,  0.0f,  0.0f,1.0f,  1.0f, 1.0f, 
-        -0.5f, -0.5f, -0.5f, 1.0f,  -1.0f,  0.0f,  0.0f,1.0f,  0.0f, 1.0f, 
-        -0.5f, -0.5f,  0.5f, 1.0f,  -1.0f,  0.0f,  0.0f,1.0f,  0.0f, 0.0f, 
-         0.5f,  0.5f,  0.5f, 1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f, 0.0f,
-         0.5f,  0.5f, -0.5f, 1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f, 1.0f,
-         0.5f, -0.5f, -0.5f, 1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, 1.0f,
-         0.5f, -0.5f,  0.5f, 1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f, 1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f, 1.0f, 
-         0.5f, -0.5f, -0.5f, 1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f, 1.0f, 
-         0.5f, -0.5f,  0.5f, 1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f, 0.0f, 
-        -0.5f, -0.5f,  0.5f, 1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f, 0.0f, 
-        -0.5f,  0.5f, -0.5f, 1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f, 1.0f,
-         0.5f,  0.5f, -0.5f, 1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f, 1.0f,
-         0.5f,  0.5f,  0.5f, 1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f, 1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f, 0.0f
+    Vert vertices[] = {
+        glm::vec4(-0.5f, -0.5f, -0.5f, 1.0f),  glm::vec4(0.0f,  0.0f, -1.0f, 1.0f),  glm::vec3(0.0f, 0.0f, 0.0f), 
+        glm::vec4( 0.5f, -0.5f, -0.5f, 1.0f),  glm::vec4(0.0f,  0.0f, -1.0f, 1.0f),  glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec4( 0.5f,  0.5f, -0.5f, 1.0f),  glm::vec4(0.0f,  0.0f, -1.0f, 1.0f),  glm::vec3(1.0f, 1.0f, 0.0f),
+        glm::vec4(-0.5f,  0.5f, -0.5f, 1.0f),  glm::vec4(0.0f,  0.0f, -1.0f, 1.0f),  glm::vec3(0.0f, 1.0f, 0.0f),
+        
+        glm::vec4(-0.5f, -0.5f,  0.5f, 1.0f),  glm::vec4(0.0f,  0.0f,  1.0f, 1.0f),  glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::vec4( 0.5f, -0.5f,  0.5f, 1.0f),  glm::vec4(0.0f,  0.0f,  1.0f, 1.0f),  glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec4( 0.5f,  0.5f,  0.5f, 1.0f),  glm::vec4(0.0f,  0.0f,  1.0f, 1.0f),  glm::vec3(1.0f, 1.0f, 0.0f),
+        glm::vec4(-0.5f,  0.5f,  0.5f, 1.0f),  glm::vec4(0.0f,  0.0f,  1.0f, 1.0f),  glm::vec3(0.0f, 1.0f, 0.0f),
+        
+        glm::vec4(-0.5f,  0.5f,  0.5f, 1.0f),  glm::vec4(-1.0f,  0.0f,  0.0f,1.0f),  glm::vec3( 1.0f, 0.0f, 0.0f),
+        glm::vec4(-0.5f,  0.5f, -0.5f, 1.0f),  glm::vec4(-1.0f,  0.0f,  0.0f,1.0f),  glm::vec3( 1.0f, 1.0f, 0.0f),
+        glm::vec4(-0.5f, -0.5f, -0.5f, 1.0f),  glm::vec4(-1.0f,  0.0f,  0.0f,1.0f),  glm::vec3( 0.0f, 1.0f, 0.0f),
+        glm::vec4(-0.5f, -0.5f,  0.5f, 1.0f),  glm::vec4(-1.0f,  0.0f,  0.0f,1.0f),  glm::vec3( 0.0f, 0.0f, 0.0f),
+        
+        glm::vec4( 0.5f,  0.5f,  0.5f, 1.0f),  glm::vec4(1.0f,  0.0f,  0.0f, 1.0f),  glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec4( 0.5f,  0.5f, -0.5f, 1.0f),  glm::vec4(1.0f,  0.0f,  0.0f, 1.0f),  glm::vec3(1.0f, 1.0f, 0.0f),
+        glm::vec4( 0.5f, -0.5f, -0.5f, 1.0f),  glm::vec4(1.0f,  0.0f,  0.0f, 1.0f),  glm::vec3(0.0f, 1.0f, 0.0f),
+        glm::vec4( 0.5f, -0.5f,  0.5f, 1.0f),  glm::vec4(1.0f,  0.0f,  0.0f, 1.0f),  glm::vec3(0.0f, 0.0f, 0.0f),
+        
+        glm::vec4(-0.5f, -0.5f, -0.5f, 1.0f),  glm::vec4(0.0f, -1.0f,  0.0f, 1.0f),  glm::vec3(0.0f, 1.0f, 0.0f),
+        glm::vec4( 0.5f, -0.5f, -0.5f, 1.0f),  glm::vec4(0.0f, -1.0f,  0.0f, 1.0f),  glm::vec3(1.0f, 1.0f, 0.0f),
+        glm::vec4( 0.5f, -0.5f,  0.5f, 1.0f),  glm::vec4(0.0f, -1.0f,  0.0f, 1.0f),  glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec4(-0.5f, -0.5f,  0.5f, 1.0f),  glm::vec4(0.0f, -1.0f,  0.0f, 1.0f),  glm::vec3(0.0f, 0.0f, 0.0f),
+        
+        glm::vec4(-0.5f,  0.5f, -0.5f, 1.0f),  glm::vec4(0.0f,  1.0f,  0.0f, 1.0f),  glm::vec3(0.0f, 1.0f, 0.0f),
+        glm::vec4( 0.5f,  0.5f, -0.5f, 1.0f),  glm::vec4(0.0f,  1.0f,  0.0f, 1.0f),  glm::vec3(1.0f, 1.0f, 0.0f),
+        glm::vec4( 0.5f,  0.5f,  0.5f, 1.0f),  glm::vec4(0.0f,  1.0f,  0.0f, 1.0f),  glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec4(-0.5f,  0.5f,  0.5f, 1.0f),  glm::vec4(0.0f,  1.0f,  0.0f, 1.0f),  glm::vec3(0.0f, 0.0f, 0.0f)
     };
     
     unsigned int indices[] = {
-         0,  2,  1,  2,  0,  3,
-         4,  5,  6,  6,  7,  4,
-         8,  9, 10, 10, 11,  8,
+        0,  2,  1,  2,  0,  3,
+        4,  5,  6,  6,  7,  4,
+        8,  9, 10, 10, 11,  8,
         12, 14, 13, 14, 12, 15,
         16, 17, 18, 18, 19, 16,
         20, 22, 21, 22, 20, 23,
     };
     
-
     obj->vao  = -1;
     obj->vbo  = -1;
     obj->ebo  = -1;
-    obj->vert_count = 36;
+    obj->vert_count = ArrayCount(indices);
     
     glGenVertexArrays(1, &obj->vao);
     glBindVertexArray(obj->vao);
@@ -493,30 +442,30 @@ void createCube(render_obj* obj)
     glGenBuffers(1, &obj->vbo);
     glBindBuffer(GL_ARRAY_BUFFER, obj->vbo);
     glBufferData(GL_ARRAY_BUFFER, 
-                 sizeof(vertices), 
-                 vertices, 
-                 GL_STATIC_DRAW);
+                sizeof(vertices), 
+                vertices, 
+                GL_STATIC_DRAW);
     
     glGenBuffers(1, &obj->ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, obj->ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, 
-                 sizeof(indices), 
-                 indices, 
-                 GL_STATIC_DRAW);
+                sizeof(indices), 
+                indices, 
+                GL_STATIC_DRAW);
     
     // Attrib_location, element_count, do_Normalize?, element_size(stride), offset
     // "offset" needs typeCasting to void* of GLvoid* -> ex) (GLvoid*)(2*sizeof(float))
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 10*sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 10*sizeof(float), (void*)(4*sizeof(float)));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert, norm)));
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 10*sizeof(float), (void*)(8*sizeof(float)));
-    glEnableVertexAttribArray(3);  
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert, texCoord)));
+    glEnableVertexAttribArray(2);  
 }
 
-void createSpriteAnim(render_obj* obj)
+void createSpriteAnim(renderPrimitive* obj)
 {
-    // vertices & indices
+   // vertices & indices
     float vertices[] = {
         0.0, 0.0,
         1.0, 0.0,
@@ -556,43 +505,46 @@ void createSpriteAnim(render_obj* obj)
     glEnableVertexAttribArray(0);
 }
 
-void setTexture(render_obj* obj, 
-                int textureType, int wrap_s, int wrap_t, 
-                int minFileter, int magFilter, 
-                const char* texturePath)
+void setSingleTexture(renderPrimitive* obj, TextureData* textureTarget, 
+                      int textureType, int wrap_s, int wrap_t, 
+                      int minFileter, int magFilter, 
+                      const char* texturePath,
+                      const char* uniformName, unsigned short textureUnit)
 {
-    glGenTextures(1, &obj->texture);
-    glBindTexture(GL_TEXTURE_2D, obj->texture);
+    if (!obj->material.isValid && !obj->textureAllocated){
+        obj->textureAllocated = true;
+        textureTarget = (TextureData*)malloc(sizeof(TextureData));
+    }
+    glGenTextures(1, &textureTarget->texture);
+    glBindTexture(GL_TEXTURE_2D, textureTarget->texture);
     // opengl 4.5 and after can change "textureType" to "obj->texture"
     glTexParameteri(textureType, GL_TEXTURE_WRAP_S, wrap_s);
     glTexParameteri(textureType, GL_TEXTURE_WRAP_T, wrap_t);
     glTexParameteri(textureType, GL_TEXTURE_MIN_FILTER, minFileter);
     glTexParameteri(textureType, GL_TEXTURE_MAG_FILTER, magFilter);
-    
     stbi_set_flip_vertically_on_load(true);
     unsigned char *data = stbi_load(texturePath, 
-                                    &obj->tex_width, &obj->tex_height, 
-                                    &obj->nrChannels, 0);
+                                    &textureTarget->tex_width, 
+                                    &textureTarget->tex_height, 
+                                    &textureTarget->nrChannels, 0);
     if (data){
         // for now we only store the original imageFormat and render that
         // exact thing. no fancy tricks here.
         int imageType = -1;
-        switch (obj->nrChannels){
+        switch (textureTarget->nrChannels){
             default: break;
             case 1: imageType = GL_RED; break;
             case 2: imageType = GL_RG;  break;
             case 3: imageType = GL_RGB; break;
             case 4: imageType = GL_RGBA; break;
         }
-
         // the first RGB is for how are we gonna save it inside GPU
         // the second RGB is for what we are lookin at inside CPU
         // first 0 is telling us the mipmap-level -> 0 being original
         // second 0 is pixel size for outline border
         glTexImage2D(textureType, 0, imageType, 
-                    obj->tex_width, obj->tex_height, 
+                    textureTarget->tex_width, textureTarget->tex_height, 
                     0, imageType, GL_UNSIGNED_BYTE, data);
-
         glGenerateMipmap(textureType);
     }
     else{
@@ -600,45 +552,96 @@ void setTexture(render_obj* obj,
     }
     stbi_image_free(data);
     stbi_set_flip_vertically_on_load(false);
+    // TODO: This part is actually more toward shader setting function
     glUseProgram(obj->shader_id);
-    glUniform1i(glGetUniformLocation(obj->shader_id, "Tex"), 0);
+    glUniform1i(glGetUniformLocation(obj->shader_id, uniformName), textureUnit);
 }
 
-// NOTE:  (EricLim73) its a CUBE map, so it only expects 6 filepath
-// ok this looks dumb but its easy and i understand what it does 
-// so thats a ok for me
-void setCubeMapTexture(render_obj* obj, 
-                        int wrap_s, int wrap_t,int wrap_r, 
-                        int minFileter, int magFilter,
-                        const char* positiveX, const char* negativeX,
-                        const char* positiveY, const char* negativeY,
-                        const char* positiveZ, const char* negativeZ)
+void setTextures(renderPrimitive* obj, unsigned int textureCount, 
+                 int textureType, int wrap_s, int wrap_t, 
+                 int minFileter, int magFilter,
+                 const char** texturePath, const char** uniformName)
+{
+    // NOTE: (Ericlim73) For now renderPrimitive can only use
+    //                   either texture or material
+    if (obj->material.isValid)
+        return;
+    if (textureCount > 31)  // hard limit of opengl
+        return;
+    // instantiate textures -> TODO: FIND A WAY TO ELEGANTLY CLEAN THIS SHIT UP
+    // TODO: (EricLim73) Learn to implement Arena Allocator QUICK!!!!!!
+    if (!obj->textureAllocated)
+        obj->textureAllocated = true;
+    
+    obj->textureCount = textureCount;
+    obj->texData = (TextureData*)malloc(sizeof(TextureData) * obj->textureCount);
+    for (unsigned int i = 0; i < obj->textureCount; ++i)
+    {   
+        obj->texData[i] = {};
+        TextureData* texture = &obj->texData[i];
+        setSingleTexture(obj, texture, 
+                         textureType, wrap_s, wrap_t, 
+                         minFileter, magFilter, 
+                         texturePath[i], uniformName[i], i);
+    }
+}
+
+void setMaterials(renderPrimitive* obj, unsigned int textureCount,
+                  int textureType, int wrap_s, int wrap_t, 
+                  int minFileter, int magFilter,
+                  const char** texturePath, const char** uniformName)
+{   
+    // NOTE: (Ericlim73) For now renderPrimitive can only use
+    //                   either texture or material
+    if (obj->textureAllocated)
+        return;
+    obj->material.isValid = true;
+    obj->textureCount = textureCount;
+    for (unsigned int i = 0; i < textureCount; ++i)
+    {   
+        TextureData* texID = &obj->material.textures[i];
+        setSingleTexture(obj, texID, 
+                         textureType, wrap_s, wrap_t, 
+                         minFileter, magFilter, 
+                         texturePath[i], uniformName[i], i);
+    }
+}
+
+// NOTE:  (EricLim73) This uses only the "diffuse" part of the material for now.
+//                    I don't know if specular or other material cubemap texture for
+//                    this....
+void setCubeMapTexture(renderPrimitive* obj, TextureData* targetTexture, 
+                       const char* uniformName,
+                       int wrap_s, int wrap_t,int wrap_r, 
+                       int minFileter, int magFilter,
+                       const char* positiveX, const char* negativeX,
+                       const char* positiveY, const char* negativeY,
+                       const char* positiveZ, const char* negativeZ)
 {
     // TODO: (EricLim73) Take only the dest path, loop it,
     // and concat the "-X" part for 6 times. I think it doesn't
     // make any performance boost but at least that looks clean (this is a bad idea)
-
     unsigned char *cubePX = stbi_load(positiveX, 
-                                    &obj->tex_width, &obj->tex_height, 
-                                    &obj->nrChannels, 0);
+                                    &targetTexture->tex_width, &targetTexture->tex_height, 
+                                    &targetTexture->nrChannels, 0);
     unsigned char *cubeNX = stbi_load(negativeX, 
-                                    &obj->tex_width, &obj->tex_height, 
-                                    &obj->nrChannels, 0);
+                                    &targetTexture->tex_width, &targetTexture->tex_height, 
+                                    &targetTexture->nrChannels, 0);
     unsigned char *cubePY = stbi_load(positiveY, 
-                                    &obj->tex_width, &obj->tex_height, 
-                                    &obj->nrChannels, 0);
+                                    &targetTexture->tex_width, &targetTexture->tex_height, 
+                                    &targetTexture->nrChannels, 0);
     unsigned char *cubeNY = stbi_load(negativeY, 
-                                    &obj->tex_width, &obj->tex_height, 
-                                    &obj->nrChannels, 0);
+                                    &targetTexture->tex_width, &targetTexture->tex_height, 
+                                    &targetTexture->nrChannels, 0);
     unsigned char *cubePZ = stbi_load(positiveZ, 
-                                    &obj->tex_width, &obj->tex_height, 
-                                    &obj->nrChannels, 0);
+                                    &targetTexture->tex_width, &targetTexture->tex_height, 
+                                    &targetTexture->nrChannels, 0);
     unsigned char *cubeNZ = stbi_load(negativeZ, 
-                                    &obj->tex_width, &obj->tex_height, 
-                                    &obj->nrChannels, 0);
+                                    &targetTexture->tex_width, &targetTexture->tex_height, 
+                                    &targetTexture->nrChannels, 0);
 
     int imageType = -1;
-    switch (obj->nrChannels){
+    switch (targetTexture->nrChannels){
         default: break;
         case 1: imageType = GL_RED; break;
         case 2: imageType = GL_RG;  break;
@@ -647,9 +650,9 @@ void setCubeMapTexture(render_obj* obj,
     }
 
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-    glGenTextures(1, &obj->texture);
+    glGenTextures(1, &targetTexture->texture);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, obj->texture);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, targetTexture->texture);
 
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, minFileter);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, magFilter);
@@ -663,20 +666,20 @@ void setCubeMapTexture(render_obj* obj,
     //            width, height, depth, 
     //            format, dataType, pixels)
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, imageType,
-      obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePX);
+      targetTexture->tex_width, targetTexture->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePX);
     glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, imageType,
-      obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNX);
+      targetTexture->tex_width, targetTexture->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNX);
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, imageType,
-      obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePY);
+      targetTexture->tex_width, targetTexture->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePY);
     glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, imageType,
-      obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNY);
+      targetTexture->tex_width, targetTexture->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNY);
     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z , 0, imageType,
-      obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePZ);
+      targetTexture->tex_width, targetTexture->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePZ);
     glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, imageType,
-      obj->tex_width, obj->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNZ);
+      targetTexture->tex_width, targetTexture->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNZ);
 
 
-    glGenerateTextureMipmap(obj->texture);
+    glGenerateTextureMipmap(targetTexture->texture);
 
     stbi_image_free(cubePX);
     stbi_image_free(cubeNX);
@@ -685,7 +688,7 @@ void setCubeMapTexture(render_obj* obj,
     stbi_image_free(cubePZ);
     stbi_image_free(cubeNZ);
     glUseProgram(obj->shader_id);
-    glUniform1i(glGetUniformLocation(obj->shader_id, "TexCube"), 0);
+    glUniform1i(glGetUniformLocation(obj->shader_id, uniformName), 0);
 }
 
 unsigned int CreateShaderProgram(const char* vertShaderPath, 

@@ -14,27 +14,50 @@ void setDefaultMVPShader(unsigned int* shader_id,
 // TODO: general idea of the function NOT USED YET
 void setLightShaderParameter(unsigned int* shader_id, 
                              Camera* cam, Material* m_material, 
-                             Light* m_light, glm::mat4* model)
+                             Light* light, glm::mat4* model)
 {
     int modelLoc = glGetUniformLocation(*shader_id, "model"); 
     int ViewProjLoc = glGetUniformLocation(*shader_id, "ViewProj");
+    
     int lightPosLoc = glGetUniformLocation(*shader_id, "light.position");
+    int lightDirectionLoc = glGetUniformLocation(*shader_id, "light.direction");
+    
     int lightAmbientLoc = glGetUniformLocation(*shader_id, "light.ambient");
     int lightDiffuseLoc = glGetUniformLocation(*shader_id, "light.diffuse");
     int lightSpecularLoc = glGetUniformLocation(*shader_id, "light.specular");
+    
+    int lightAttenuationLoc = glGetUniformLocation(*shader_id, "light.attenuation");
+    int lightCutoffLoc = glGetUniformLocation(*shader_id, "light.cutoff");
+    
+    int lightTypeLoc = glGetUniformLocation(*shader_id, "light.lightType");
+    
     int materialShininessLoc = glGetUniformLocation(*shader_id, "material.shininess");
     int viewPosLoc = glGetUniformLocation(*shader_id, "viewPos");
-    
+
     glUseProgram(*shader_id);
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(*model));    
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(*model));
     glUniformMatrix4fv(ViewProjLoc, 1, GL_FALSE, glm::value_ptr(cam->ViewProj));
-    glUniform3fv(lightPosLoc, 1, glm::value_ptr(glm::vec3(m_light->position)));
-	glUniform3fv(lightAmbientLoc, 1, glm::value_ptr(glm::vec3(m_light->ambient)));
-	glUniform3fv(lightDiffuseLoc, 1, glm::value_ptr(glm::vec3(m_light->diffuse)));
-	glUniform3fv(lightSpecularLoc, 1, glm::value_ptr(glm::vec3(m_light->specular)));
-	glUniform1f(materialShininessLoc, m_material->shininess);
-    	glUniform1f(glGetUniformLocation(*shader_id, "timeStamp"), (float)glfwGetTime());
+    
+    glUniform1i(lightTypeLoc, (int)light->type);
+    glUniform3fv(lightPosLoc, 1, glm::value_ptr(light->position));
+    glUniform3fv(lightDirectionLoc, 1, glm::value_ptr(light->direction));
+
+    glUniform3fv(lightAmbientLoc, 1, glm::value_ptr(light->ambient));
+	glUniform3fv(lightDiffuseLoc, 1, glm::value_ptr(light->diffuse));
+	glUniform3fv(lightSpecularLoc, 1, glm::value_ptr(light->specular));
+	
+    glm::vec3 attCoef = GetAttenuationCoeff(light->affectRange);
+    glUniform3fv(lightAttenuationLoc, 1, glm::value_ptr(attCoef));
+    glm::vec2 cutoffInCosine = glm::vec2(cosf(glm::radians(light->cutoff[0])),
+                                         cosf(glm::radians(light->cutoff[0] + 
+                                                           light->cutoff[0])));
+    glUniform2fv(lightCutoffLoc, 1, glm::value_ptr(cutoffInCosine));
+    
+    glUniform1f(materialShininessLoc, m_material->shininess);
+    // NOTE: "timeStamp" for emmision animation effect
+    glUniform1f(glGetUniformLocation(*shader_id, "timeStamp"), (float)glfwGetTime());
     glUniform3fv(viewPosLoc, 1, glm::value_ptr(cam->cameraPos));
+
 }
 
 void bindTextures(renderPrimitive* obj){
@@ -107,6 +130,7 @@ void setCamera( Camera* cam, ProjectionMode mode,
     cam->row = 0.0f;
     cam->speed = 2.5f;
     cam->sensitivity = 0.1f;
+    cam->focus = false;
     
     cam->view = glm::lookAt(cam->cameraPos, 
                             cam->cameraPos + cam->cameraFront, 
@@ -119,11 +143,14 @@ void CameraStatReset(Camera* cam){
     glm::vec3 pos = glm::vec3(0.0f, 0.0f,  3.0f);
     glm::vec3 front = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 up = glm::vec3(0.0f, 1.0f,  0.0f);
+    cam->focus = false;
     setCamera(cam, ProjectionMode::PERSPECTIVE, &pos, &front, &up, 0.1f, 100.0f, 45.0f);
 }
 
 void CameraRotation(GLFWwindow* window, Camera* cam, Mouse* mouse, float xpos, float ypos)
 {
+    if (!cam->focus)
+        return;
     float xoffset = (float)((float)xpos - mouse->pos.x);
     float yoffset = (float)(mouse->pos.y - (float)ypos);
 
@@ -156,6 +183,8 @@ void CameraRotation(GLFWwindow* window, Camera* cam, Mouse* mouse, float xpos, f
 
 void CameraMovement(GLFWwindow* window, Camera* cam, float deltaTime)
 {
+    if (!cam->focus)
+        return;
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS){
         cam->cameraPos += (cam->speed * deltaTime) * cam->cameraFront;
     }
@@ -170,7 +199,13 @@ void CameraMovement(GLFWwindow* window, Camera* cam, float deltaTime)
         cam->cameraPos -= (cam->speed * deltaTime) * glm::normalize(glm::cross(cam->cameraFront, 
                                                             cam->cameraUp));    
     }    
-    
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS){
+        cam->cameraPos += (cam->speed * deltaTime) * glm::normalize(cam->cameraUp);    
+    }  
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS){
+        cam->cameraPos -= (cam->speed * deltaTime) * glm::normalize(cam->cameraUp);    
+    }
+
     cam->view = glm::lookAt(cam->cameraPos, 
                             cam->cameraPos + cam->cameraFront, 
                             cam->cameraUp);
@@ -178,6 +213,8 @@ void CameraMovement(GLFWwindow* window, Camera* cam, float deltaTime)
 }
 
 void CameraZoom(Camera* cam, float zoom){
+    if (!cam->focus)
+        return;
     cam->fov -= zoom;
     if (cam->fov < 20.0f)
         cam->fov = 20.0f;

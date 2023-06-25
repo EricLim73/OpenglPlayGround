@@ -54,6 +54,33 @@ int main(int argc, char** argv){
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetScrollCallback(window, mouseScrollCallback);
 
+//---------------Context setup   
+    Context context = {};    
+    Camera* cam = &context.camera;
+    glm::vec3 pos = glm::vec3(0.0f, 0.0f,  3.0f);
+    glm::vec3 front = glm::vec3(0.0f, 0.0f, -1.0f);
+    glm::vec3 up = glm::vec3(0.0f, 1.0f,  0.0f);
+    setCamera(cam, ProjectionMode::PERSPECTIVE, &pos, &front, &up, 0.1f, 100.0f, 45.0f);
+    Mouse* mouse = &context.mouse; 
+    glfwSetCursorPos(window, (double)windowWidth/2, (double)windowHeight/2);
+    mouse->pos = glm::vec2((float)(windowWidth / 2), (float)(windowHeight / 2));
+    
+    // TODO: (EricLim73) change this to incoporate a whole Context for future
+    // dont know if thats the best way
+    //~ SetFunction
+    glfwSetWindowUserPointer(window, &context);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glViewport(0, 0, windowWidth, windowHeight);
+    ColorValue DefaultCL = {0.0f, 0.0f, 0.0f};
+	glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+	glFrontFace(GL_CCW);
+	glCullFace(GL_BACK);
+
+    windowTransform RenderArea = {};
+    RenderArea.aspectRatio = (float)windowWidth/(float)windowHeight;
+
+
 //---------------Shader setup 
     unsigned int simpleShader = CreateShaderProgram("./shaders/simple.vs", 
                                                     "./shaders/simple.fs");
@@ -69,6 +96,32 @@ int main(int argc, char** argv){
     unsigned int lightingShader = CreateShaderProgram("./shaders/lighting.vs", 
                                                       "./shaders/lighting.fs");
 //---------------Object setup (mesh + some of them texture)   
+    Light directionalLight = {}; 
+    setUpDirectionLight(&directionalLight,
+                    glm::vec3(-0.2f, -1.0f, -0.3f),
+                    glm::vec3(0.2f, 0.2f, 0.2f), 
+                    glm::vec3(0.5f, 0.5f, 0.5f),
+                    glm::vec3(1.0f, 1.0f, 1.0f));
+    
+    Light pointLight = {}; 
+    setUpPointLight(&pointLight,
+                    glm::vec3(2.0f, 2.0f, 2.0f),
+                    glm::vec3(0.1f, 0.1f, 0.1f), 
+                    glm::vec3(0.5f, 0.5f, 0.5f),
+                    glm::vec3(1.0f, 1.0f, 1.0f),
+                    128.0f);
+        
+    Light spotLight = {}; 
+    setUpSpotLight(&spotLight,
+                   cam->cameraPos,
+                   cam->cameraFront,
+                   glm::vec3(0.2f, 0.2f, 0.2f),
+                   glm::vec3(0.5f, 0.5f, 0.5f),
+                   glm::vec3(1.0f, 1.0f, 1.0f),
+                   glm::vec2(10.0f, 2.0f),
+                   32.0f);
+
+
     renderPrimitive globe = {};
     globe.shader_id = cubemapTex;
     globe.material.shininess = 7.0f;
@@ -119,36 +172,6 @@ int main(int argc, char** argv){
     frame.ny_frames = 1;
     frame.frames_ps = 8;
 
-//---------------Context setup   
-    Context context = {};    
-    Camera* cam = &context.camera;
-    glm::vec3 pos = glm::vec3(0.0f, 0.0f,  3.0f);
-    glm::vec3 front = glm::vec3(0.0f, 0.0f, -1.0f);
-    glm::vec3 up = glm::vec3(0.0f, 1.0f,  0.0f);
-    setCamera(cam, ProjectionMode::PERSPECTIVE, &pos, &front, &up, 0.1f, 100.0f, 45.0f);
-    Mouse* mouse = &context.mouse; 
-    glfwSetCursorPos(window, (double)windowWidth/2, (double)windowHeight/2);
-    mouse->pos = glm::vec2((float)(windowWidth / 2), (float)(windowHeight / 2));
-    
-    // TODO: (EricLim73) change this to incoporate a whole Context for future
-    // dont know if thats the best way
-    //~ SetFunction
-    glfwSetWindowUserPointer(window, &context);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    glViewport(0, 0, windowWidth, windowHeight);
-    ColorValue DefaultCL = {0.0f, 0.0f, 0.0f};
-	glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-	glFrontFace(GL_CCW);
-	glCullFace(GL_BACK);
-
-    windowTransform RenderArea = {};
-    RenderArea.aspectRatio = (float)windowWidth/(float)windowHeight;
-
-    // NOTE:  (EricLim73) setting up miniMap config
-    windowTransform miniMapWT = {};
-    ColorValue miniMapColor = {};
-    setupColorValue(&miniMapColor, 0.5f, 0.5f, 0.2f);
 
 //---------------renderLoop (GameLoop)
     while(!glfwWindowShouldClose(window)){ 
@@ -164,39 +187,55 @@ int main(int argc, char** argv){
         // update current renderArea -> NOTE:  (EricLim73) can be done in callback function if i try
         RenderArea.pos_x = RenderArea.pos_y = 0;
         glfwGetWindowSize(window, &RenderArea.width, &RenderArea.height);
-
-        // setting minimap to match current renderArea
-        setupWindowTransfrom(&miniMapWT, 
-                            (int)(windowWidth * 0.70f), (int)(windowHeight * 0.05f),
-                            (int)(windowWidth * 0.25f), (int)(windowHeight * 0.25f));
         
         if (AspectRatioLocked){
             ColorValue AspectWindowCol = {};
-            setupColorValue(&AspectWindowCol, 0.3f, 0.4f, 0.3f);
+            setupColorValue(&AspectWindowCol, 0.0f, 0.0f, 0.0f);
             SetupAspectRatioLock(window, &RenderArea, AspectWindowCol);
-            setupWindowTransfrom(&miniMapWT, 
-                        RenderArea.pos_x + (int)(RenderArea.width * 0.70f), 
-                        RenderArea.pos_y + (int)(RenderArea.height * 0.05f),
-                        (int)(RenderArea.width * 0.25f), (int)(RenderArea.height * 0.25f));
         }
     //---------------ACTAUL RENDER CALLS            
+            Light* lightCaster = &spotLight;   
+            
             glUseProgram(testLight.shader_id);
-            glm::mat4 modelLight = glm::translate(glm::mat4(1.0), m_light.position) * glm::scale(glm::mat4(1.0), glm::vec3(0.1f)); 
+            glm::mat4 modelLight = glm::translate(glm::mat4(1.0), lightCaster->position) * 
+                                   glm::scale(glm::mat4(1.0), glm::vec3(0.1f)); 
             setDefaultMVPShader(&testLight.shader_id, cam, &modelLight);
-            drawObj(&testLight);
-            
-            glm::mat4 model = glm::rotate(glm::mat4(1.0f),  glm::radians(15.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            model = glm::translate(model, glm::vec3(-2.0f, 0.0f, 0.0f));
-            setLightShaderParameter(&materialContainer.shader_id, cam, &materialContainer.material, &m_light, &model);
-            drawObj(&materialContainer);
-            
-            model = glm::translate(model, glm::vec3(10.0f, 0.0f, 0.0f));
-            setLightShaderParameter(&globe.shader_id, cam, &globe.material, &m_light, &model);            
-            drawObj(&globe);   
- 
+            if (lightCaster->type == LightType::POINT_LIGHT)
+                drawObj(&testLight);
+
+            if (lightCaster->type == LightType::SPOT_LIGHT){
+                lightCaster->position = cam->cameraPos;
+                lightCaster->direction = cam->cameraFront;
+            }
+
+            glm::mat4 model = glm::mat4(1.0f);
+            for (int i = 0; i < 10; ++i)
+            {
+                model = glm::rotate(glm::mat4(1.0f), 
+                                   (float)i*glm::radians(15.0f), 
+                                   glm::vec3(0.0f, 1.0f, 0.0f));
+                model = glm::translate(model, glm::vec3(-2.0f+(float)i, 
+                                                        0.0f-(float)i+1, 
+                                                        0.0f+(float)i+2));
+                setLightShaderParameter(&materialContainer.shader_id, 
+                                        cam, &materialContainer.material, 
+                                        lightCaster, &model);
+                drawObj(&materialContainer);
+            }
+
+            glm::mat4 globeModel = glm::rotate(glm::mat4(1.0f),  
+                                               (float)glfwGetTime() * glm::radians(15.0f),
+                                               glm::vec3(0.0f, 1.0f, 0.0f));
+            globeModel = glm::translate(globeModel, glm::vec3(5.0f, 0.0f, 0.0f));
+            globeModel = glm::rotate(glm::mat4(1.0f), 
+                                    (float)glfwGetTime() * glm::radians(30.0f), 
+                                    glm::vec3(0.0f, 1.0f, 0.0f));
+            setLightShaderParameter(&globe.shader_id, cam, &globe.material, lightCaster, &globeModel);            
+            drawObj(&globe);  
+
             runSpriteAnim(&frame);
             setSpriteUniform(&spriteMan, &frame, x_dir, y_dir);
-            drawObj(&spriteMan);   
+            drawObj(&spriteMan);  
 
     //---------------Swapbuffer & event polling
         glfwSwapBuffers(window);
@@ -262,6 +301,10 @@ void mouseButtonCallback(GLFWwindow* window,
     switch (action)
     {
         case GLFW_PRESS:{
+            if (button == 0){
+                context->camera.focus = true;
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            }
             mouse->buttonPressed[button] = true;
             glfwGetCursorPos(window, &x, &y);
             mouse->dragStart = glm::vec2((float)x, (float)y);
@@ -269,6 +312,10 @@ void mouseButtonCallback(GLFWwindow* window,
         }
         case GLFW_RELEASE:{
             mouse->buttonPressed[button] = false;
+            if (button == 0){
+                context->camera.focus = false;
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            }
             glfwGetCursorPos(window, &x, &y);
             glm::vec2 dragCur = glm::vec2((float)x, (float)y);
             break;

@@ -15,7 +15,7 @@ uniform mat4 ViewProj;
 void main(void) {
 	wPos = model * aPos; // position in world frame  
 	wNorm = transpose(inverse(model)) * aNorm; // normal vector in world frame
-	wTexCoord = vec2(aTexCoord.x, aTexCoord.y);;
+	wTexCoord = vec2(aTexCoord.x, aTexCoord.y);
 	gl_Position = ViewProj* wPos;
 }
 

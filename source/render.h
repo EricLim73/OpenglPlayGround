@@ -31,7 +31,7 @@ struct Camera{
     float row;
     float speed;
     float sensitivity;
-
+    bool focus;
     ProjectionMode mode;
 };
 
@@ -41,14 +41,26 @@ struct TextureData{
     int tex_height;
     int nrChannels; 
 };
+
+enum class LightType{
+    DIRECTIONAL_LIGHT,
+    POINT_LIGHT,
+    SPOT_LIGHT,
+    TOTAL_LIGHT_COUNT
+};
+
 // light parameter
 struct Light {
-    glm::vec3 position { glm::vec3(0.0f, 0.0f, 1.0f) };
-    glm::vec3 ambient { glm::vec3(0.1f, 0.1f, 0.1f) };
-    glm::vec3 diffuse { glm::vec3(0.5f, 0.5f, 0.5f) };
-    glm::vec3 specular { glm::vec3(1.0f, 1.0f, 1.0f) };
+    glm::vec3 position;
+    glm::vec3 direction;
+    glm::vec3 ambient;
+    glm::vec3 diffuse;
+    glm::vec3 specular; 
+    glm::vec2 cutoff;
+    LightType type;
+    float affectRange;
 };
-Light m_light;
+
 
 // material parameter
 struct Material {
@@ -113,7 +125,7 @@ void setDefaultMVPShader(unsigned int* shader_id,
                          glm::mat4* model);
 void setLightShaderParameter(unsigned int* shader_id, 
                              Camera* cam, Material* m_material, 
-                             Light* m_light, glm::mat4* model);
+                             Light* light, glm::mat4* model);
 
 // Sprite Render Functions //
 void createSpriteAnim(renderPrimitive* obj);
@@ -170,6 +182,64 @@ inline void updateProj(Camera* cam, float near, float far){
     {
         cam->proj = glm::ortho(0.0f, (float)windowWidth, 0.0f, (float)windowHeight, near, far);
     }
+}
+
+inline void 
+setUpDirectionLight(Light* light,
+                glm::vec3 direction,
+                glm::vec3 ambient,
+                glm::vec3 diffuse,
+                glm::vec3 specular)
+{
+    light->type = LightType::DIRECTIONAL_LIGHT;
+    light->direction = glm::normalize(direction);
+    light->ambient = ambient;
+    light->diffuse = diffuse;
+    light->specular = specular; 
+
+    light->position = glm::vec3(0.0f);
+    light->affectRange = 0;
+    light->cutoff = glm::vec2(0.0f);
+}
+
+inline void 
+setUpPointLight(Light* light,
+                glm::vec3 pos,
+                glm::vec3 ambient,
+                glm::vec3 diffuse,
+                glm::vec3 specular, 
+                float affectRange)
+{
+    light->type = LightType::POINT_LIGHT;
+    light->position = pos;
+    light->ambient = ambient;
+    light->diffuse = diffuse;
+    light->specular = specular; 
+    light->affectRange = affectRange;
+
+    light->direction = glm::vec3(0.0f);
+    light->cutoff = glm::vec2(0.0f);
+}
+
+
+inline void 
+setUpSpotLight(Light* light,
+               glm::vec3 pos,
+               glm::vec3 direction,
+               glm::vec3 ambient,
+               glm::vec3 diffuse,
+               glm::vec3 specular,
+               glm::vec2 cutoff, 
+               float affectRange)
+{
+    light->type = LightType::SPOT_LIGHT;
+    light->position = pos;
+    light->direction = glm::normalize(direction);
+    light->ambient = ambient;
+    light->diffuse = diffuse;
+    light->specular = specular; 
+    light->cutoff = cutoff;
+    light->affectRange = affectRange;
 }
 
 // NOTE:  (EricLim73) reset viewport & scissor for current window size

@@ -17,7 +17,7 @@
 #define Megabytes(count) (uint64_t) (count * 1024 * 1024)
 #define Kilobytes(count) (uint64_t) (count * 1024)
 
-#define SPEED 0.005f
+#define SPEED 0.05f
 
 #define global          static
 #define local_presist   static
@@ -26,7 +26,7 @@
 
 int windowWidth = 960;
 int windowHeight = 720;
-bool AspectRatioLocked = true;
+bool AspectRatioLocked = false;
 
 struct Mouse{
     glm::vec2 pos;          // constant update through cursorPos callback event
@@ -62,6 +62,8 @@ struct ColorValue{
 void SetupAspectRatioLock(GLFWwindow* window, 
 						  windowTransform* RenderArea,
                           ColorValue AspectR_col);
+
+glm::vec3 GetAttenuationCoeff(float distance);
 
 inline void setupColorValue(ColorValue* cl, 
                             float r, float g, float b)

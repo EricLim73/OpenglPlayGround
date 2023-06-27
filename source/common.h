@@ -27,6 +27,7 @@
 int windowWidth = 960;
 int windowHeight = 720;
 bool AspectRatioLocked = false;
+bool enableVsync = true;
 
 struct Mouse{
     glm::vec2 pos;          // constant update through cursorPos callback event

@@ -162,7 +162,7 @@ void setMaterials(renderPrimitive* obj, unsigned int textureCount,
 
 void bindTextures(renderPrimitive* obj);
 
-void setCubeMapTexture(renderPrimitive* obj, TextureData* targetTexture, 
+void setCubeMapTexture(renderPrimitive* obj, TextureData* textureTarget, 
                        const char* uniformName,
                        int wrap_s, int wrap_t,int wrap_r, 
                        int minFileter, int magFilter,

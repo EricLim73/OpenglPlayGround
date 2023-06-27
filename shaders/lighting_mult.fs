@@ -1,9 +1,9 @@
 #version 460 core
 
 in vec4 wPos;
-in vec4 wNorm; 
-in vec3 wTexCoord; // v3
-out vec4 FragColor;
+in vec4 wNorm;
+in vec2 wTexCoord;
+out vec4 fragColor;
 
 struct Light {
     vec3 position; 
@@ -15,20 +15,21 @@ struct Light {
     vec2 cutoff;
     int lightType;
 };
-uniform Light light;
-
+uniform Light light[];
+ 
 struct Material {
-	samplerCube diffuse;
-  samplerCube specular;
-  samplerCube emission;
-  float shininess;
+	sampler2D diffuse;
+    sampler2D specular;
+    sampler2D emission;
+
+    float shininess;
 };
 uniform Material material;
 
 uniform vec3 viewPos;
 uniform float timeStamp; // for emmision animation effect
 
-vec3 calculateDirectionalLight(vec3 texColor, vec3 specColor, vec3 emission){
+vec3 calculateDirectionalLight(vec3 texColor, vec3 specColor, vec3 emissionColor){
     // ambient 
   	vec3 ambient = texColor * light.ambient;
 
@@ -47,12 +48,12 @@ vec3 calculateDirectionalLight(vec3 texColor, vec3 specColor, vec3 emission){
     // emission
     //vec3 emission = emissionColor;
 
-    vec3 result = (ambient + diffuse + specular + emission);
+    vec3 result = (ambient + diffuse + specular + emissionColor);
     
     return result;
 }
 
-vec3 calculatePointLight(vec3 texColor, vec3 specColor, vec3 emission){ 
+vec3 calculatePointLight(vec3 texColor, vec3 specColor, vec3 emissionColor){ 
   	vec3 ambient = texColor * light.ambient;
 
     float dist = length(light.position - wPos.xyz);
@@ -71,11 +72,11 @@ vec3 calculatePointLight(vec3 texColor, vec3 specColor, vec3 emission){
 
     //vec3 emission = calculate_emission();
     
-    vec3 result = (ambient + diffuse + specular + emission)*attenuation;
+    vec3 result = (ambient + diffuse + specular + emissionColor)*attenuation;
     return result;
 }
 
-vec3 calculateSpotLight(vec3 texColor, vec3 specColor, vec3 emission){
+vec3 calculateSpotLight(vec3 texColor, vec3 specColor, vec3 emissionColor){
     // NOTE: for spotLight, "light.direction" and "lightDir" is two
     //       different things. Former is the actual lightsource direction
     //       and the latter represents direction btwn pixel and lightSource
@@ -90,7 +91,7 @@ vec3 calculateSpotLight(vec3 texColor, vec3 specColor, vec3 emission){
     float theta = dot(lightDir, normalize(-light.direction));
     float intensity = clamp((theta - light.cutoff[1]) / (light.cutoff[0] - light.cutoff[1]), 0.0, 1.0);
 
-    vec3 result = ambient + emission;
+    vec3 result = (ambient + emissionColor);
     // NOTE: "Theta" is angle value represented as cosine
     //        and this goes same for "light.cutoff". So when 
     //        comparing if theta has bigger value, that means
@@ -124,10 +125,12 @@ vec3 calculateSpotLight(vec3 texColor, vec3 specColor, vec3 emission){
 void main() {
   vec3 diffuseColor = texture(material.diffuse, wTexCoord).rgb;
   vec3 specColor = texture(material.specular, wTexCoord).rgb;
-	
-  // For now keep it this way
-	vec3 emissionColor = vec3(0.0f);
   
+  vec3 show = step(vec3(1.0), vec3(1.0) - texture(material.specular, wTexCoord).rgb);
+	vec3 emissionColor = texture(material.emission, vec2(wTexCoord.x, wTexCoord.y + timeStamp)).rgb * show;
+  
+  // NOTE: To add multiple light, just add the result for each type from calling
+  //       the right light function
 
   vec3 result;
   if (light.lightType == 0)
@@ -138,5 +141,5 @@ void main() {
 	  result = calculateSpotLight(diffuseColor, specColor, emissionColor);
   
   
-  FragColor = vec4(result, 1.0);
+  fragColor = vec4(result, 1.0);
 }

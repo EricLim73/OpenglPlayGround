@@ -41,6 +41,8 @@ int main(int argc, char** argv){
         return -1;
     }
     glfwMakeContextCurrent(window);
+    if (enableVsync)
+        glfwSwapInterval(1); // Enable vsync
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
         std::cout << "Failed to initialize GLAD" << std::endl;
@@ -71,7 +73,7 @@ int main(int argc, char** argv){
     glfwSetWindowUserPointer(window, &context);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glViewport(0, 0, windowWidth, windowHeight);
-    ColorValue DefaultCL = {0.0f, 0.0f, 0.0f};
+    ColorValue DefaultCL = {0.1f, 0.1f, 0.3f};
 	glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 	glFrontFace(GL_CCW);
@@ -121,6 +123,16 @@ int main(int argc, char** argv){
                    glm::vec2(10.0f, 2.0f),
                    32.0f);
 
+    renderPrimitive plane = {};
+    plane.shader_id = simpleTexShader;
+    createSquare(&plane);
+    const char* groundTex[] = {"resources/textures/awesomeface.png", "resources/textures/wall.jpg"};
+    const char* groundTexUN[] = {"Tex1", "Tex2"};
+    createSquare(&plane);
+    setTextures(&plane, ArrayCount(groundTex),
+                GL_TEXTURE_2D, GL_REPEAT, GL_REPEAT,
+                GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST,
+                groundTex, groundTexUN);
 
     renderPrimitive globe = {};
     globe.shader_id = cubemapTex;
@@ -135,6 +147,8 @@ int main(int argc, char** argv){
                       "resources/cubemap/earth/earth-map-3.png",
                       "resources/cubemap/earth/earth-map-4.png",
                       "resources/cubemap/earth/earth-map-5.png");
+
+
 
     renderPrimitive testLight = {};
     createCube(&testLight);
@@ -237,6 +251,12 @@ int main(int argc, char** argv){
             setSpriteUniform(&spriteMan, &frame, x_dir, y_dir);
             drawObj(&spriteMan);  
 
+            glm::mat4 groundMat = glm::mat4(1.0f);
+            groundMat = glm::translate(groundMat, glm::vec3(2.0f, 1.0f, 0.0f));
+            setDefaultMVPShader(&plane.shader_id, cam, &groundMat);
+            drawObj(&plane);  
+
+
     //---------------Swapbuffer & event polling
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -248,6 +268,7 @@ int main(int argc, char** argv){
     cleanupAllocatedTexture(&materialContainer);
     cleanupAllocatedTexture(&testLight);
     cleanupAllocatedTexture(&spriteMan);
+    cleanupAllocatedTexture(&plane);
 
 
     glfwTerminate();

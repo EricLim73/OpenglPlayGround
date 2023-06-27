@@ -60,23 +60,6 @@ void setLightShaderParameter(unsigned int* shader_id,
 
 }
 
-void bindTextures(renderPrimitive* obj){
-    if (obj->textureCount > 31)
-        return;
-    TextureData* texture = obj->texData;
-    unsigned int loopCount = obj->textureCount;
-    int textureUnit = GL_TEXTURE0;
-    if (obj->material.isValid){
-        texture = obj->material.textures;
-        loopCount = ArrayCount(obj->material.textures);
-    }
-    for (unsigned int i = 0; i < loopCount; ++i){
-        glActiveTexture(textureUnit);
-        glBindTexture(GL_TEXTURE_2D, texture[i].texture);
-        textureUnit+=1;
-    }
-}
-
 void runSpriteAnim(spriteFrameData* spriteFrameInfo)
 {
     // TODO: (EricLim73) the initial frame time is not perfect 
@@ -296,30 +279,35 @@ void createSphere(renderPrimitive* obj,int level) {
     subTriangles(level, VertSize, vertSphere, &VertIndex, v[3], v[2], v[5]);
     subTriangles(level, VertSize, vertSphere, &VertIndex, v[0], v[3], v[5]);
 
+    obj->vao  = -1;
     obj->vbo  = -1;
     obj->ebo  = -1;
     obj->vert_count = VertIndex;  
     
-    glGenVertexArrays(1, &obj->vao);
-    glBindVertexArray(obj->vao);
+    glCreateVertexArrays(1, &obj->vao);
+    glCreateBuffers(1, &obj->vbo);
     
-    glGenBuffers(1, &obj->vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, obj->vbo);
-    glBufferData(GL_ARRAY_BUFFER, 
-                sizeof(vertSphere), 
-                vertSphere, 
-                GL_STATIC_DRAW);
+    // equivalent to "glBufferData"
+    glNamedBufferData(obj->vbo, sizeof(vertSphere), vertSphere, GL_STATIC_DRAW); 
     
+    // setting vbo data structure to vao
+    // parameter that is specified as "binding index"
+    // probably means the index representing vbo that we are trying to connect
+    glEnableVertexArrayAttrib(obj->vao, 0);
+    // the 2 line below acts as one set of work
+    glVertexArrayAttribBinding(obj->vao, 0, 0);
+    glVertexArrayAttribFormat(obj->vao, 0, 4, GL_FLOAT, GL_FALSE, 0);
+
+    glEnableVertexArrayAttrib(obj->vao, 1);
+    glVertexArrayAttribBinding(obj->vao, 1, 0);
+    glVertexArrayAttribFormat(obj->vao, 1, 4, GL_FLOAT, GL_FALSE, offsetof(Vert, norm));
+
+    glEnableVertexArrayAttrib(obj->vao, 2);
+    glVertexArrayAttribBinding(obj->vao, 2, 0);
+    glVertexArrayAttribFormat(obj->vao, 2, 3, GL_FLOAT, GL_FALSE, offsetof(Vert, texCoord));
     
-    // Attrib_location, element_count, do_Normalize?, element_size(stride), offset
-    // "offset" needs typeCasting to void* of GLvoid* -> ex) (GLvoid*)(2*sizeof(float))
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert, norm)));
-    glEnableVertexAttribArray(1);
-    
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert,texCoord)));
-    glEnableVertexAttribArray(3);  
+    // setting vbo and ebo to created vao
+    glVertexArrayVertexBuffer(obj->vao, 0, obj->vbo, 0, sizeof(Vert));
 }
 
 
@@ -329,10 +317,10 @@ void createTriangle(renderPrimitive* obj)
     // and that will be transferred into Screen-Space Coordinates
     // pos,color,texCoord
     Vert vertices[] = {
-        // positions               // colors                 // texture coords
-    glm::vec4( 0.0f,  0.5f, 0.0f, 1.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f),  // top right
-    glm::vec4(-0.5f, -0.5f, 0.0f, 1.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f),  // bottom left
-    glm::vec4( 0.5f, -0.5f, 0.0f, 1.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f), glm::vec3(1.0f, 0.0f, 1.0f)   // bottom right
+        // positions                        // colors|normal                 // texture coords
+        glm::vec4( 0.0f,  0.5f, 0.0f, 1.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f),  // top right
+        glm::vec4(-0.5f, -0.5f, 0.0f, 1.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f),  // bottom left
+        glm::vec4( 0.5f, -0.5f, 0.0f, 1.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f), glm::vec3(1.0f, 0.0f, 1.0f)   // bottom right
     };
     unsigned int indices[] = {  // note that we start from 0!
         0, 1, 3   // first triangle
@@ -341,24 +329,35 @@ void createTriangle(renderPrimitive* obj)
     obj->vao  = -1;
     obj->vbo  = -1;
     obj->ebo  = -1;
-    obj->vert_count = 3;
+    obj->vert_count = ArrayCount(indices);
     
-    glGenVertexArrays(1, &obj->vao);
-    glBindVertexArray(obj->vao);
+    glCreateVertexArrays(1, &obj->vao);
+    glCreateBuffers(1, &obj->vbo);
+    glCreateBuffers(1, &obj->ebo);
     
-    glGenBuffers(1, &obj->vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, obj->vbo);
-    glBufferData(GL_ARRAY_BUFFER, 
-                sizeof(vertices), 
-                vertices, 
-                GL_STATIC_DRAW);
+    // equivalent to "glBufferData"
+    glNamedBufferData(obj->vbo, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glNamedBufferData(obj->ebo, sizeof(indices), indices, GL_STATIC_DRAW);
     
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert, norm)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert, texCoord)));
-    glEnableVertexAttribArray(2);
+    // setting vbo data structure to vao
+    // parameter that is specified as "binding index"
+    // probably means the index representing vbo that we are trying to connect
+    glEnableVertexArrayAttrib(obj->vao, 0);
+    // the 2 line below acts as one set of work
+    glVertexArrayAttribBinding(obj->vao, 0, 0);
+    glVertexArrayAttribFormat(obj->vao, 0, 4, GL_FLOAT, GL_FALSE, 0);
+
+    glEnableVertexArrayAttrib(obj->vao, 1);
+    glVertexArrayAttribBinding(obj->vao, 1, 0);
+    glVertexArrayAttribFormat(obj->vao, 1, 4, GL_FLOAT, GL_FALSE, offsetof(Vert, norm));
+
+    glEnableVertexArrayAttrib(obj->vao, 2);
+    glVertexArrayAttribBinding(obj->vao, 2, 0);
+    glVertexArrayAttribFormat(obj->vao, 2, 3, GL_FLOAT, GL_FALSE, offsetof(Vert, texCoord));
+    
+    // setting vbo and ebo to created vao
+    glVertexArrayVertexBuffer(obj->vao, 0, obj->vbo, 0, sizeof(Vert));
+    glVertexArrayElementBuffer(obj->vao, obj->ebo);
 }
 
 void createSquare(renderPrimitive* obj)
@@ -377,37 +376,40 @@ void createSquare(renderPrimitive* obj)
         0, 1, 3,   // first triangle
         1, 2, 3    // second triangle
     };
-    
+
     obj->vao  = -1;
     obj->vbo  = -1;
     obj->ebo  = -1;
     obj->vert_count = ArrayCount(indices);
     
-    glGenVertexArrays(1, &obj->vao);
-    glBindVertexArray(obj->vao);
+    glCreateVertexArrays(1, &obj->vao);
+    glCreateBuffers(1, &obj->vbo);
+    glCreateBuffers(1, &obj->ebo);
     
-    glGenBuffers(1, &obj->vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, obj->vbo);
-    glBufferData(GL_ARRAY_BUFFER, 
-                sizeof(vertices), 
-                vertices, 
-                GL_STATIC_DRAW);
+    // equivalent to "glBufferData"
+    glNamedBufferData(obj->vbo, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glNamedBufferData(obj->ebo, sizeof(indices), indices, GL_STATIC_DRAW);
     
-    glGenBuffers(1, &obj->ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, obj->ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 
-                sizeof(indices), 
-                indices, 
-                GL_STATIC_DRAW);
+    // setting vbo data structure to vao
+    // parameter that is specified as "binding index"
+    // probably means the index representing vbo that we are trying to connect
+    glEnableVertexArrayAttrib(obj->vao, 0);
+    // the 2 line below acts as one set of work
+    glVertexArrayAttribBinding(obj->vao, 0, 0);
+    glVertexArrayAttribFormat(obj->vao, 0, 4, GL_FLOAT, GL_FALSE, 0);
+
+    glEnableVertexArrayAttrib(obj->vao, 1);
+    glVertexArrayAttribBinding(obj->vao, 1, 0);
+    glVertexArrayAttribFormat(obj->vao, 1, 4, GL_FLOAT, GL_FALSE, offsetof(Vert, norm));
+
+    glEnableVertexArrayAttrib(obj->vao, 2);
+    glVertexArrayAttribBinding(obj->vao, 2, 0);
+    glVertexArrayAttribFormat(obj->vao, 2, 3, GL_FLOAT, GL_FALSE, offsetof(Vert, texCoord));
     
-    // Attrib_location, element_count, do_Normalize?, element_size(stride), offset
-    // "offset" needs typeCasting to void* of GLvoid* -> ex) (GLvoid*)(2*sizeof(float))
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert, norm)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert, texCoord)));
-    glEnableVertexAttribArray(2);  
+    // setting vbo and ebo to created vao
+    glVertexArrayVertexBuffer(obj->vao, 0, obj->vbo, 0, sizeof(Vert));
+    glVertexArrayElementBuffer(obj->vao, obj->ebo);
+
 }
 
 void createCube(renderPrimitive* obj)
@@ -458,41 +460,43 @@ void createCube(renderPrimitive* obj)
     obj->ebo  = -1;
     obj->vert_count = ArrayCount(indices);
     
-    glGenVertexArrays(1, &obj->vao);
-    glBindVertexArray(obj->vao);
+    glCreateVertexArrays(1, &obj->vao);
+    glCreateBuffers(1, &obj->vbo);
+    glCreateBuffers(1, &obj->ebo);
     
-    glGenBuffers(1, &obj->vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, obj->vbo);
-    glBufferData(GL_ARRAY_BUFFER, 
-                sizeof(vertices), 
-                vertices, 
-                GL_STATIC_DRAW);
+    // equivalent to "glBufferData"
+    glNamedBufferData(obj->vbo, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glNamedBufferData(obj->ebo, sizeof(indices), indices, GL_STATIC_DRAW);
     
-    glGenBuffers(1, &obj->ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, obj->ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 
-                sizeof(indices), 
-                indices, 
-                GL_STATIC_DRAW);
+    // setting vbo data structure to vao
+    // parameter that is specified as "binding index"
+    // probably means the index representing vbo that we are trying to connect
+    glEnableVertexArrayAttrib(obj->vao, 0);
+    // the 2 line below acts as one set of work
+    glVertexArrayAttribBinding(obj->vao, 0, 0);
+    glVertexArrayAttribFormat(obj->vao, 0, 4, GL_FLOAT, GL_FALSE, 0);
+
+    glEnableVertexArrayAttrib(obj->vao, 1);
+    glVertexArrayAttribBinding(obj->vao, 1, 0);
+    glVertexArrayAttribFormat(obj->vao, 1, 4, GL_FLOAT, GL_FALSE, offsetof(Vert, norm));
+
+    glEnableVertexArrayAttrib(obj->vao, 2);
+    glVertexArrayAttribBinding(obj->vao, 2, 0);
+    glVertexArrayAttribFormat(obj->vao, 2, 3, GL_FLOAT, GL_FALSE, offsetof(Vert, texCoord));
     
-    // Attrib_location, element_count, do_Normalize?, element_size(stride), offset
-    // "offset" needs typeCasting to void* of GLvoid* -> ex) (GLvoid*)(2*sizeof(float))
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert, norm)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), (void*)(offsetof(Vert, texCoord)));
-    glEnableVertexAttribArray(2);  
+    // setting vbo and ebo to created vao
+    glVertexArrayVertexBuffer(obj->vao, 0, obj->vbo, 0, sizeof(Vert));
+    glVertexArrayElementBuffer(obj->vao, obj->ebo);
 }
 
 void createSpriteAnim(renderPrimitive* obj)
 {
    // vertices & indices
     float vertices[] = {
-        0.0, 0.0,
-        1.0, 0.0,
-        1.0, 1.0,
-        0.0, 1.0
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        1.0f, 1.0f,
+        0.0f, 1.0f
     };
     unsigned int indices[] = {
         0, 1, 2,
@@ -502,29 +506,44 @@ void createSpriteAnim(renderPrimitive* obj)
     obj->vao  = -1;
     obj->vbo  = -1;
     obj->ebo  = -1;
-    obj->vert_count = 6;
+    obj->vert_count = ArrayCount(indices);
+    
+    glCreateVertexArrays(1, &obj->vao);
+    glCreateBuffers(1, &obj->vbo);
+    glCreateBuffers(1, &obj->ebo);
+    
+    // equivalent to "glBufferData"
+    glNamedBufferData(obj->vbo, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glNamedBufferData(obj->ebo, sizeof(indices), indices, GL_STATIC_DRAW);
+    
+    // setting vbo data structure to vao
+    // parameter that is specified as "binding index"
+    // probably means the index representing vbo that we are trying to connect
+    glEnableVertexArrayAttrib(obj->vao, 0);
+    // the 2 line below acts as one set of work
+    glVertexArrayAttribBinding(obj->vao, 0, 0);
+    glVertexArrayAttribFormat(obj->vao, 0, 2, GL_FLOAT, GL_FALSE, 0);
 
-    glGenVertexArrays(1, &obj->vao);
-    glBindVertexArray(obj->vao);
+    // setting vbo and ebo to created vao
+    glVertexArrayVertexBuffer(obj->vao, 0, obj->vbo, 0, 2*sizeof(float));
+    glVertexArrayElementBuffer(obj->vao, obj->ebo);
+}
+
+void bindTextures(renderPrimitive* obj){
+    if (obj->textureCount > 31)
+        return;
+    TextureData* texture = obj->texData;
+    unsigned int loopCount = obj->textureCount;
+
+    int textureUnit = 0;
+    if (obj->material.isValid){
+        texture = obj->material.textures;
+    }
     
-    glGenBuffers(1, &obj->vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, obj->vbo);
-    glBufferData(GL_ARRAY_BUFFER, 
-                 sizeof(vertices), 
-                 vertices, 
-                 GL_STATIC_DRAW);
-    
-    glGenBuffers(1, &obj->ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, obj->ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 
-                 sizeof(indices), 
-                 indices, 
-                 GL_STATIC_DRAW);
-    
-    // Attrib_location, element_count, do_Normalize?, element_size(stride), offset
-    // "offset" needs typeCasting to void* of GLvoid* -> ex) (GLvoid*)(2*sizeof(float))
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void *) 0);
-    glEnableVertexAttribArray(0);
+    for (unsigned int i = 0; i < loopCount; ++i){
+        glBindTextureUnit(textureUnit, texture[i].texture);
+        textureUnit+=1;
+    }
 }
 
 void setSingleTexture(renderPrimitive* obj, TextureData* textureTarget, 
@@ -536,14 +555,19 @@ void setSingleTexture(renderPrimitive* obj, TextureData* textureTarget,
     if (!obj->material.isValid && !obj->textureAllocated){
         obj->textureAllocated = true;
         textureTarget = (TextureData*)malloc(sizeof(TextureData));
-    }
-    glGenTextures(1, &textureTarget->texture);
-    glBindTexture(GL_TEXTURE_2D, textureTarget->texture);
-    // opengl 4.5 and after can change "textureType" to "obj->texture"
-    glTexParameteri(textureType, GL_TEXTURE_WRAP_S, wrap_s);
-    glTexParameteri(textureType, GL_TEXTURE_WRAP_T, wrap_t);
-    glTexParameteri(textureType, GL_TEXTURE_MIN_FILTER, minFileter);
-    glTexParameteri(textureType, GL_TEXTURE_MAG_FILTER, magFilter);
+    }  
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &textureTarget->texture);
+
+    glTextureParameteri(textureTarget->texture, 
+                        GL_TEXTURE_WRAP_S, wrap_s);
+    glTextureParameteri(textureTarget->texture, 
+                        GL_TEXTURE_WRAP_T, wrap_t);
+    glTextureParameteri(textureTarget->texture, 
+                        GL_TEXTURE_MIN_FILTER, minFileter);
+    glTextureParameteri(textureTarget->texture, 
+                        GL_TEXTURE_MAG_FILTER, magFilter);
+
     stbi_set_flip_vertically_on_load(true);
     unsigned char *data = stbi_load(texturePath, 
                                     &textureTarget->tex_width, 
@@ -560,14 +584,16 @@ void setSingleTexture(renderPrimitive* obj, TextureData* textureTarget,
             case 3: imageType = GL_RGB; break;
             case 4: imageType = GL_RGBA; break;
         }
-        // the first RGB is for how are we gonna save it inside GPU
-        // the second RGB is for what we are lookin at inside CPU
-        // first 0 is telling us the mipmap-level -> 0 being original
-        // second 0 is pixel size for outline border
-        glTexImage2D(textureType, 0, imageType, 
-                    textureTarget->tex_width, textureTarget->tex_height, 
-                    0, imageType, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(textureType);
+        glTextureStorage2D(textureTarget->texture, 1, GL_RGBA8, 
+                           textureTarget->tex_width, textureTarget->tex_height);
+
+        glTextureSubImage2D(textureTarget->texture, 0,
+                            0, 0, 
+                            textureTarget->tex_width, 
+                            textureTarget->tex_height, 
+                            imageType, GL_UNSIGNED_BYTE, 
+                            data);
+        glGenerateTextureMipmap(textureTarget->texture);
     }
     else{
         std::cout << "failed to load image" << std::endl;
@@ -632,7 +658,7 @@ void setMaterials(renderPrimitive* obj, unsigned int textureCount,
 // NOTE:  (EricLim73) This uses only the "diffuse" part of the material for now.
 //                    I don't know if specular or other material cubemap texture for
 //                    this....
-void setCubeMapTexture(renderPrimitive* obj, TextureData* targetTexture, 
+void setCubeMapTexture(renderPrimitive* obj, TextureData* textureTarget, 
                        const char* uniformName,
                        int wrap_s, int wrap_t,int wrap_r, 
                        int minFileter, int magFilter,
@@ -640,68 +666,99 @@ void setCubeMapTexture(renderPrimitive* obj, TextureData* targetTexture,
                        const char* positiveY, const char* negativeY,
                        const char* positiveZ, const char* negativeZ)
 {
+    // TODO: (Ericlim73) make it so that we can take multiple image
+    //        and combine them as single texture
+    if (obj->textureAllocated)
+        return;
+    obj->material.isValid = true;
+    obj->textureCount = 1;
+
     // TODO: (EricLim73) Take only the dest path, loop it,
     // and concat the "-X" part for 6 times. I think it doesn't
     // make any performance boost but at least that looks clean (this is a bad idea)
     unsigned char *cubePX = stbi_load(positiveX, 
-                                    &targetTexture->tex_width, &targetTexture->tex_height, 
-                                    &targetTexture->nrChannels, 0);
+                                    &textureTarget->tex_width, &textureTarget->tex_height, 
+                                    &textureTarget->nrChannels, 0);
     unsigned char *cubeNX = stbi_load(negativeX, 
-                                    &targetTexture->tex_width, &targetTexture->tex_height, 
-                                    &targetTexture->nrChannels, 0);
+                                    &textureTarget->tex_width, &textureTarget->tex_height, 
+                                    &textureTarget->nrChannels, 0);
     unsigned char *cubePY = stbi_load(positiveY, 
-                                    &targetTexture->tex_width, &targetTexture->tex_height, 
-                                    &targetTexture->nrChannels, 0);
+                                    &textureTarget->tex_width, &textureTarget->tex_height, 
+                                    &textureTarget->nrChannels, 0);
     unsigned char *cubeNY = stbi_load(negativeY, 
-                                    &targetTexture->tex_width, &targetTexture->tex_height, 
-                                    &targetTexture->nrChannels, 0);
+                                    &textureTarget->tex_width, &textureTarget->tex_height, 
+                                    &textureTarget->nrChannels, 0);
     unsigned char *cubePZ = stbi_load(positiveZ, 
-                                    &targetTexture->tex_width, &targetTexture->tex_height, 
-                                    &targetTexture->nrChannels, 0);
+                                    &textureTarget->tex_width, &textureTarget->tex_height, 
+                                    &textureTarget->nrChannels, 0);
     unsigned char *cubeNZ = stbi_load(negativeZ, 
-                                    &targetTexture->tex_width, &targetTexture->tex_height, 
-                                    &targetTexture->nrChannels, 0);
+                                    &textureTarget->tex_width, &textureTarget->tex_height, 
+                                    &textureTarget->nrChannels, 0);
 
     int imageType = -1;
-    switch (targetTexture->nrChannels){
+    switch (textureTarget->nrChannels){
         default: break;
         case 1: imageType = GL_RED; break;
         case 2: imageType = GL_RG;  break;
         case 3: imageType = GL_RGB; break;
         case 4: imageType = GL_RGBA; break;
     }
-
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-    glGenTextures(1, &targetTexture->texture);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, targetTexture->texture);
+    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &textureTarget->texture);
 
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, minFileter);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, magFilter);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, wrap_s);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, wrap_t);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, wrap_r);
+    glTextureParameteri(textureTarget->texture, 
+                        GL_TEXTURE_MIN_FILTER, minFileter);
+    glTextureParameteri(textureTarget->texture, 
+                        GL_TEXTURE_MAG_FILTER, magFilter);
+    glTextureParameteri(textureTarget->texture, 
+                        GL_TEXTURE_WRAP_S, wrap_s);
+    glTextureParameteri(textureTarget->texture, 
+                        GL_TEXTURE_WRAP_T, wrap_t);
+    glTextureParameteri(textureTarget->texture, 
+                        GL_TEXTURE_WRAP_R, wrap_r);
 
-    // new way of doing the same thing from 4.5 and up
-    // SubImage3D(tex, level, 
-    //            xoffset, yoffset, zoffset, 
-    //            width, height, depth, 
-    //            format, dataType, pixels)
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, imageType,
-      targetTexture->tex_width, targetTexture->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePX);
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, imageType,
-      targetTexture->tex_width, targetTexture->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNX);
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, imageType,
-      targetTexture->tex_width, targetTexture->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePY);
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, imageType,
-      targetTexture->tex_width, targetTexture->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNY);
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z , 0, imageType,
-      targetTexture->tex_width, targetTexture->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubePZ);
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, imageType,
-      targetTexture->tex_width, targetTexture->tex_height, 0, imageType, GL_UNSIGNED_BYTE, cubeNZ);
+    glTextureStorage2D(textureTarget->texture, 
+                       1, GL_RGBA8, 
+                       textureTarget->tex_width, 
+                       textureTarget->tex_height);
 
-
-    glGenerateTextureMipmap(targetTexture->texture);
+	glTextureSubImage3D(textureTarget->texture, 0, 
+                        0, 0, 0, 
+                        textureTarget->tex_width, 
+                        textureTarget->tex_height, 
+                        1, imageType, GL_UNSIGNED_BYTE,
+                        cubePX);
+	glTextureSubImage3D(textureTarget->texture, 0, 
+                        0, 0, 1, 
+                        textureTarget->tex_width, 
+                        textureTarget->tex_height, 
+                        1, imageType, GL_UNSIGNED_BYTE, 
+                        cubeNX);
+	glTextureSubImage3D(textureTarget->texture, 0, 
+                        0, 0, 2, 
+                        textureTarget->tex_width, 
+                        textureTarget->tex_height, 
+                        1, imageType, GL_UNSIGNED_BYTE,
+                        cubePY);
+	glTextureSubImage3D(textureTarget->texture, 0, 
+                        0, 0, 3, 
+                        textureTarget->tex_width, 
+                        textureTarget->tex_height, 
+                        1, imageType, GL_UNSIGNED_BYTE,
+                        cubeNY);
+	glTextureSubImage3D(textureTarget->texture, 0, 
+                        0, 0, 4, 
+                        textureTarget->tex_width, 
+                        textureTarget->tex_height, 
+                        1, imageType, GL_UNSIGNED_BYTE,
+                        cubePZ);
+	glTextureSubImage3D(textureTarget->texture, 0, 
+                        0, 0, 5, 
+                        textureTarget->tex_width, 
+                        textureTarget->tex_height, 
+                        1, imageType, GL_UNSIGNED_BYTE,
+                        cubeNZ);
+	glGenerateTextureMipmap(textureTarget->texture);
 
     stbi_image_free(cubePX);
     stbi_image_free(cubeNX);
@@ -709,6 +766,7 @@ void setCubeMapTexture(renderPrimitive* obj, TextureData* targetTexture,
     stbi_image_free(cubeNY);
     stbi_image_free(cubePZ);
     stbi_image_free(cubeNZ);
+
     glUseProgram(obj->shader_id);
     glUniform1i(glGetUniformLocation(obj->shader_id, uniformName), 0);
 }

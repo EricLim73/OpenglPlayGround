@@ -19,10 +19,9 @@ uniform Light light;
  
 struct Material {
 	sampler2D diffuse;
-    sampler2D specular;
-    sampler2D emission;
-
-    float shininess;
+  sampler2D specular;
+  sampler2D emission;
+  float shininess;
 };
 uniform Material material;
 
@@ -129,6 +128,9 @@ void main() {
   vec3 show = step(vec3(1.0), vec3(1.0) - texture(material.specular, wTexCoord).rgb);
 	vec3 emissionColor = texture(material.emission, vec2(wTexCoord.x, wTexCoord.y + timeStamp)).rgb * show;
   
+  // NOTE: To add multiple light, just add the result for each type from calling
+  //       the right light function
+
   vec3 result;
   if (light.lightType == 0)
 	  result = calculateDirectionalLight(diffuseColor, specColor, emissionColor);

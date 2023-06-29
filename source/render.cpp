@@ -805,13 +805,17 @@ unsigned int CreateShaderProgram(const char* vertShaderPath,
     shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertShader);
     glAttachShader(shaderProgram, fragShader);
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
     glLinkProgram(shaderProgram);
     
-    glGetShaderiv(shaderProgram, GL_LINK_STATUS, &success);
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
     if (!success){
         glGetShaderInfoLog(shaderProgram, 512, NULL, infoLog);
         std::cout << "[Error::SHADER::PROGRAM::LINK_FAILED]: " << infoLog << std::endl;
     }
+
     glDetachShader(shaderProgram, vertShader);
     glDetachShader(shaderProgram,fragShader);
     glDeleteShader(vertShader);

@@ -3,7 +3,7 @@
 in vec4 wPos;
 in vec4 wNorm;
 in vec2 wTexCoord;
-out vec4 fragColor;
+out vec4 FragColor;
 
 struct Light {
     vec3 position; 
@@ -140,5 +140,5 @@ void main() {
 	  result = calculateSpotLight(diffuseColor, specColor, emissionColor);
   
   
-  fragColor = vec4(result, 1.0);
+  FragColor = vec4(result, 1.0);
 }

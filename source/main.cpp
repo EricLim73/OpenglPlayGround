@@ -10,10 +10,73 @@
 
 #include "common.cpp"
 #include "render.cpp"
+
+
+/*  NOTE: Error solution report -> gets deleted after commit
+---------------------------------------------------------------------------------------------------
+    [Type]: GL_DEBUG_TYPE_ERROR
+    [Source]: GL_DEBUG_SOURCE_API
+    [ID]: 1282
+    [Severity]: GL_DEBUG_SEVERITY_HIGH
+    [Message]: GL_INVALID_OPERATION error generated. Object is not a program or shader object.
+
+        NOTE: [Problem Solved] 
+              glGetShaderiv() -> glGetProgramiv() inside CreateShaderProgram() was the answer.
+              I was just using the wrong function
+---------------------------------------------------------------------------------------------------
+    [Type]: GL_DEBUG_TYPE_PERFORMANCE
+    [Source]: GL_DEBUG_SOURCE_API
+    [ID]: 131218
+    [Severity]: GL_DEBUG_SEVERITY_MEDIUM
+    [Message]: Program/shader state performance warning: Vertex shader in program 5 
+               is being recompiled based on GL state.
+                                &&&&
+    [Type]: GL_DEBUG_TYPE_PERFORMANCE
+    [Source]: GL_DEBUG_SOURCE_API
+    [ID]: 131218
+    [Severity]: GL_DEBUG_SEVERITY_MEDIUM
+    [Message]: Program/shader state performance warning: Vertex shader in program 5 
+               is being recompiled based on GL state, and was not found in the disk cache
+        
+        NOTE: [Problem Solved]   
+              Hard time finding where it happened. First i thought it was 
+              glUseProgram() & glUniform1i() inside "setSingleTexture()" and
+              "cubemapTexture()" bc when removing functions that use them
+              the last one calling them will pop up this error (its shader id to be precise).
+              When i googled through bunch of shits i found this post on reddit 
+              (https://www.reddit.com/r/opengl/comments/ld18gp/opengl_debugger_complain_vertex_shader_is/)       
+
+              Two solutions. The first one is...
+              (quote)
+              You have two options to solve this: 
+              first is to track down which state change is triggering this and avoid it. 
+              The second is to figure out all combinations of shaders and states you need, 
+              and draw one triangle using every combination. The second option is what 
+              (some) commercial engines do (especially on mobile, where state based recompiles 
+              are more common). It's also how Vulkan works.
+
+              The second on (which worked for me) is...
+              (quote)
+              According to https://www.khronos.org/opengl/wiki/Shader_Compilation#Program_setup
+              Before Linking:
+                A number of parameters can be set up that will affect the linkingprocess. 
+                This generally involves interfaces with the program. Theseinclude:
+                    ...
+                    Vertex shader input attribute locations
+                    ...
+              So when I compiled and linked my shaders, my VAO was unbound. 
+              Therefore the shaders input attribute locations were not enabled. 
+              By just enabling location with "glEnableVertexAttribArray(location)" 
+              before linking the warning disappeared.
+             
+             SO most of my shader uses 0,1,2 for [vertex pos, norm, texCoord(*this one is the culprit imo)],
+             i added glEnableVertexAttribArray(0), glEnableVertexAttribArray(1), glEnableVertexAttribArray(2)
+             before linking shader inside "CreateShaderProgram()" and it fixed the problem
+*/
   
+
 // TODO: (EricLim73) Fix lighting for god sakes
 // TODO: (EricLim73) Refactor render flow to more flexible format
-
 struct Context{
     Camera camera;
     Mouse mouse;
@@ -25,6 +88,9 @@ void keyCallback(GLFWwindow* window,
 void mousePosCallback(GLFWwindow* window, double xpos, double ypos);
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void mouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+
+void message_callback(GLenum src,GLenum type,GLuint id,GLenum severity,
+                      GLsizei length, GLchar const* msg, void const* user_param);
 
 void readKeyboard(GLFWwindow *window, float *x_direction, float *y_direction);
 
@@ -56,6 +122,22 @@ int main(int argc, char** argv){
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetScrollCallback(window, mouseScrollCallback);
 
+//---------------OpenGL option setup
+	glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+	glFrontFace(GL_CCW);
+	glCullFace(GL_BACK);
+
+    glEnable(GL_DEBUG_OUTPUT);
+    // print out immediately (default == buffered)
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    // disable notification message
+    glDebugMessageControl(GL_DONT_CARE, 
+                          GL_DONT_CARE, 
+                          GL_DEBUG_SEVERITY_NOTIFICATION, 
+                          0, nullptr, GL_FALSE);
+    glDebugMessageCallback(message_callback, nullptr);
+
 //---------------Context setup   
     Context context = {};    
     Camera* cam = &context.camera;
@@ -74,10 +156,6 @@ int main(int argc, char** argv){
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glViewport(0, 0, windowWidth, windowHeight);
     ColorValue DefaultCL = {0.1f, 0.1f, 0.3f};
-	glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-	glFrontFace(GL_CCW);
-	glCullFace(GL_BACK);
 
     windowTransform RenderArea = {};
     RenderArea.aspectRatio = (float)windowWidth/(float)windowHeight;
@@ -148,8 +226,6 @@ int main(int argc, char** argv){
                       "resources/cubemap/earth/earth-map-4.png",
                       "resources/cubemap/earth/earth-map-5.png");
 
-
-
     renderPrimitive testLight = {};
     createCube(&testLight);
     testLight.shader_id = simpleShader;
@@ -157,8 +233,12 @@ int main(int argc, char** argv){
     renderPrimitive materialContainer = {};
     materialContainer.shader_id = lightingShader;
     createCube(&materialContainer);
-    const char* textures[] ={"resources/textures/container2.png", "resources/textures/container2_specular.png", "resources/textures/matrix.jpg"};
-    const char* uniformNames[] = {"material.diffuse", "material.specular", "material.emission"};
+    const char* textures[] ={"resources/textures/container2.png", 
+                             "resources/textures/container2_specular.png", 
+                             "resources/textures/matrix.jpg"};
+    const char* uniformNames[] = {"material.diffuse", 
+                                  "material.specular", 
+                                  "material.emission"};
     setMaterials(&materialContainer, ArrayCount(textures),
                 GL_TEXTURE_2D, GL_REPEAT, GL_REPEAT, 
                 GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR,
@@ -276,6 +356,55 @@ int main(int argc, char** argv){
 } 
 
 //---------------MAIN CALLBACKS & UTILITY FUNCTION
+// TODO: potentially problematic when the values defined gets updated and so on
+//       but its good for now i guess...? at least i practiced to avoid branching for 
+//       something that does not need branching so thats a win for me
+void message_callback(GLenum src, GLenum type, GLuint id, GLenum severity,
+                      GLsizei length, GLchar const* msg, void const* user_param)
+{
+    // NOTE: (Ericlim73) All the "GL_DEBUG_SOURCE" that i can find inside "glad.h"
+    const char* sourceValue[] = {"GL_DEBUG_SOURCE_API", 
+                                 "GL_DEBUG_SOURCE_WINDOW_SYSTEM", 
+                                 "GL_DEBUG_SOURCE_SHADER_COMPILER", 
+                                 "GL_DEBUG_SOURCE_THIRD_PARTY", 
+                                 "GL_DEBUG_SOURCE_APPLICATION", 
+                                 "GL_DEBUG_SOURCE_OTHER"
+                                };
+    // NOTE: (Ericlim73) All the "GL_DEBUG_TYPE" that i can find inside "glad.h"
+    const char* typeValue[] = {"GL_DEBUG_TYPE_ERROR", 
+                               "GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR", 
+                               "GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR", 
+                               "GL_DEBUG_TYPE_PORTABILITY", 
+                               "GL_DEBUG_TYPE_PERFORMANCE", 
+                               "GL_DEBUG_TYPE_OTHER",     // 0x8251
+                               "GL_DEBUG_TYPE_MARKER",    // 0x8268
+                               "GL_DEBUG_TYPE_PUSH_GROUP",
+                               "GL_DEBUG_TYPE_POP_GROUP"
+                                };
+    // NOTE: (Ericlim73) All the "GL_DEBUG_SEVERITY" that i can find inside "glad.h"
+    const char* severityValue[] = {"GL_DEBUG_SEVERITY_HIGH",        // 0x9146
+                                   "GL_DEBUG_SEVERITY_MEDIUM", 
+                                   "GL_DEBUG_SEVERITY_LOW", 
+                                   "GL_DEBUG_SEVERITY_NOTIFICATION" // 0x826B
+                                   }; 
+
+    unsigned int srcOffset = GL_DEBUG_SOURCE_API;
+    unsigned int typeOffset = GL_DEBUG_TYPE_ERROR;
+    unsigned int servOffset = GL_DEBUG_SEVERITY_HIGH;
+    int sourceIndex = src  - srcOffset;
+    int typeIndex   = type - typeOffset;
+    int servIndex   = severity - servOffset;
+    // if type goes over "OTHER" recalculate
+    if (typeIndex > 5) {typeIndex = 5 + type - GL_DEBUG_TYPE_MARKER;}
+    // if severity goes below "HIGH" recalculate
+    if (servIndex < 0) {servIndex = 3;}
+
+    printf("[Type]: %s\n[Source]: %s\n[ID]: %d\n[Severity]: %s\n",
+            typeValue[typeIndex], sourceValue[sourceIndex], id, severityValue[servIndex]);
+    printf("[Message]: %s\n\n", msg);
+    fflush(stdout);
+}
+
 void framebuffer_sizeCallback(GLFWwindow* window, int width, int height)
 {
     windowWidth = width;

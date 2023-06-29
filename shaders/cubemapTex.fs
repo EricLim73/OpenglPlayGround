@@ -126,7 +126,7 @@ void main() {
   vec3 specColor = texture(material.specular, wTexCoord).rgb;
 	
   // For now keep it this way
-	vec3 emissionColor = vec3(0.0f);
+	vec3 emissionColor = vec3(0.0);
   
 
   vec3 result;

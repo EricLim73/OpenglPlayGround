@@ -1,0 +1,15 @@
+
+// for slightly sharper aa, change line 11 to
+// pix = floor(pix) + smoothstep(0.0, 1.0, fract(pix) / fwidth(pix)) - 0.5;
+
+void mainImage(out vec4 col, in vec2 pix)
+{
+   // scale pixels 4-8x
+   pix /= sin(iTime * 0.4) * 2.0 + 6.0;
+
+   // apply aa algorithm
+   pix = floor(pix) + min(fract(pix) / fwidth(pix), 1.0) - 0.5;
+
+   // sample and return
+   col = texture(iChannel0, pix / iChannelResolution[0].xy);
+}
